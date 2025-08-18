@@ -24,6 +24,12 @@ jobs:
           pip install pytest langsmith openevals anthropic
           pip install -e .
 
+      # Install action dependencies
+      - name: Install LangSmith Evaluation Action dependencies
+        run: |
+          cd langsmith-eval-action
+          npm install
+
       # Use local LangSmith Evaluation Action
       - name: Run LangSmith Evaluations
         uses: ./langsmith-eval-action
@@ -70,6 +76,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Install action dependencies
+      - name: Install LangGraph Deploy Action dependencies
+        run: |
+          cd langgraph-deploy-action
+          npm install
+
       # Use local LangGraph Deploy Action
       - name: Deploy Preview Environment
         uses: ./langgraph-deploy-action
@@ -99,6 +111,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Install action dependencies
+      - name: Install LangGraph Deploy Action dependencies
+        run: |
+          cd langgraph-deploy-action
+          npm install
+
       # Use local LangGraph Deploy Action
       - name: Deploy to Production
         uses: ./langgraph-deploy-action
@@ -126,6 +144,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Install action dependencies
+      - name: Install LangGraph Deploy Action dependencies
+        run: |
+          cd langgraph-deploy-action
+          npm install
 
       # Use local LangGraph Deploy Action
       - name: Cleanup Preview Environment
