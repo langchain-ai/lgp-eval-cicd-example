@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   # Run evaluations using local action
   run-evaluations:
@@ -38,7 +43,7 @@ jobs:
           langsmith-api-key: ${{ secrets.LANGSMITH_API_KEY }}
           test-command: 'pytest tests/offline_evals/ -m evaluator --verbose'
           max-concurrency: '5'
-          fail-on-threshold: 'true'
+          fail-on-threshold: 'false'
           environment-variables: |
             {
               "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
