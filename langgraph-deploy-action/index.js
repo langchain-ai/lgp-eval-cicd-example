@@ -74,7 +74,7 @@ function parseSecrets(secretsInput, openaiApiKey) {
 }
 
 class LangGraphAPI {
-  constructor(apiKey, baseUrl = 'https://gtm.smith.langchain.dev/api-host/') {
+  constructor(apiKey, baseUrl = 'https://gtm.smith.langchain.dev/api-host/v2') {
     this.apiKey = apiKey;
     // Ensure baseUrl doesn't have trailing slash and has correct path
     this.baseUrl = this.normalizeBaseUrl(baseUrl);
@@ -90,11 +90,15 @@ class LangGraphAPI {
 
     // Handle different endpoint formats
     if (normalized.includes('api.host.langchain.com')) {
-      // Direct format: https://api.host.langchain.com
-      // Keep as is
+      // Direct format: https://api.host.langchain.com/v2
+      if (!normalized.endsWith('/v2')) {
+        normalized += '/v2';
+      }
     } else if (normalized.includes('gtm.smith.langchain.dev/api-host')) {
-      // GTM format: https://gtm.smith.langchain.dev/api-host
-      // Keep as is
+      // GTM format: https://gtm.smith.langchain.dev/api-host/v2
+      if (!normalized.endsWith('/v2')) {
+        normalized += '/v2';
+      }
     }
 
     return normalized;
@@ -103,7 +107,7 @@ class LangGraphAPI {
   async listDeployments(nameContains = null) {
     try {
       const params = nameContains ? { name_contains: nameContains } : {};
-      const response = await axios.get(`${this.baseUrl}/v2/deployments`, {
+      const response = await axios.get(`${this.baseUrl}/deployments`, {
         headers: this.headers,
         params
       });
@@ -149,17 +153,14 @@ class LangGraphAPI {
     try {
       core.info(`📤 Creating deployment: ${name}`);
       core.info(`📦 Image: ${imageUri}`);
-      core.debug(`🔍 Request body: ${JSON.stringify(requestBody, null, 2)}`);
-      core.debug(`🔍 API URL: ${this.baseUrl}/v2/deployments`);
 
-      const response = await axios.post(`${this.baseUrl}/v2/deployments`, requestBody, {
+      const response = await axios.post(`${this.baseUrl}/deployments`, requestBody, {
         headers: this.headers
       });
 
       return response.data;
     } catch (error) {
-      const errorData = error.response?.data ? JSON.stringify(error.response.data, null, 2) : 'No response data';
-      throw new Error(`Failed to create deployment: ${error.response?.status} - ${errorData}`);
+      throw new Error(`Failed to create deployment: ${error.response?.status} - ${error.response?.data}`);
     }
   }
 
@@ -176,26 +177,24 @@ class LangGraphAPI {
       core.info(`🔄 Updating deployment: ${deploymentId}`);
       core.info(`📦 New image: ${imageUri}`);
 
-      const response = await axios.patch(`${this.baseUrl}/v2/deployments/${deploymentId}`, requestBody, {
+      const response = await axios.patch(`${this.baseUrl}/deployments/${deploymentId}`, requestBody, {
         headers: this.headers
       });
 
       return response.data;
     } catch (error) {
-      const errorData = error.response?.data ? JSON.stringify(error.response.data, null, 2) : 'No response data';
-      throw new Error(`Failed to update deployment: ${error.response?.status} - ${errorData}`);
+      throw new Error(`Failed to update deployment: ${error.response?.status} - ${error.response?.data}`);
     }
   }
 
   async deleteDeployment(deploymentId) {
     try {
-      await axios.delete(`${this.baseUrl}/v2/deployments/${deploymentId}`, {
+      await axios.delete(`${this.baseUrl}/deployments/${deploymentId}`, {
         headers: this.headers
       });
       return true;
     } catch (error) {
-      const errorData = error.response?.data ? JSON.stringify(error.response.data, null, 2) : 'No response data';
-      throw new Error(`Failed to delete deployment: ${error.response?.status} - ${errorData}`);
+      throw new Error(`Failed to delete deployment: ${error.response?.status} - ${error.response?.data}`);
     }
   }
 
@@ -404,7 +403,7 @@ async function main() {
     const appName = core.getInput('app-name') || 'langgraph-app';
     const openaiApiKey = core.getInput('openai-api-key') || process.env.OPENAI_API_KEY;
     const secretsInput = core.getInput('secrets');
-    const baseUrl = core.getInput('base-url') || 'https://gtm.smith.langchain.dev/api-host/';
+    const baseUrl = core.getInput('base-url') || 'https://gtm.smith.langchain.dev/api-host/v2';
 
     // Parse secrets with backward compatibility
     const secrets = parseSecrets(secretsInput, openaiApiKey);

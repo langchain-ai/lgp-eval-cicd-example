@@ -93,7 +93,7 @@ jobs:
 | `app-name` | Application name for auto-generated deployment names | ❌ | `langgraph-app` |
 | `openai-api-key` | OpenAI API key to inject as secret (DEPRECATED: use `secrets`) | ❌ | From environment |
 | `secrets` | JSON object or YAML string of secrets to inject | ❌ | `{}` |
-| `base-url` | LangGraph API base URL (supports multiple formats) | ❌ | `https://gtm.smith.langchain.dev/api-host/` |
+| `base-url` | LangGraph API base URL (supports multiple formats) | ❌ | `https://gtm.smith.langchain.dev/api-host/v2` |
 | `resource-cpu` | CPU allocation for deployment (1-16) | ❌ | `1` |
 | `resource-memory` | Memory allocation in MB (128-32768) | ❌ | `1024` |
 | `min-scale` | Minimum scale instances (1-100) | ❌ | `1` |
@@ -200,8 +200,8 @@ jobs:
 The action supports different LangGraph API endpoints via the `base-url` input:
 
 ### LangGraph Host API Endpoints:
-- **GTM Format**: `https://gtm.smith.langchain.dev/api-host/` (default)
-- **Direct Format**: `https://api.host.langchain.com/`
+- **GTM Format**: `https://gtm.smith.langchain.dev/api-host/v2` (default)
+- **Direct Format**: `https://api.host.langchain.com/v2`
 
 ### Usage with Custom Endpoints:
 
@@ -212,7 +212,7 @@ The action supports different LangGraph API endpoints via the `base-url` input:
     action: 'deploy-production'
     api-key: ${{ secrets.LANGSMITH_API_KEY }}
     image-uri: 'docker.io/your-org/your-app:latest'
-    base-url: 'https://api.host.langchain.com/'  # Custom endpoint
+    base-url: 'https://api.host.langchain.com/v2'  # Custom endpoint
     secrets: |
       {
         "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
