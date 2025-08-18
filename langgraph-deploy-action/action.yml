@@ -29,9 +29,9 @@ inputs:
     description: 'JSON object or YAML string of secrets to inject into deployment (e.g., {"OPENAI_API_KEY": "sk-...", "ANTHROPIC_API_KEY": "sk-ant-..."})'
     required: false
   base-url:
-    description: 'LangGraph API base URL (examples: https://gtm.smith.langchain.dev/api-host/v2, https://api.host.langchain.com/v2)'
+    description: 'LangGraph API base URL (examples: https://gtm.smith.langchain.dev/api-host/, https://api.host.langchain.com/)'
     required: false
-    default: 'https://gtm.smith.langchain.dev/api-host/v2'
+    default: 'https://gtm.smith.langchain.dev/api-host/'
   resource-cpu:
     description: 'CPU allocation for deployment (1-16)'
     required: false

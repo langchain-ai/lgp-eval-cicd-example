@@ -66,10 +66,9 @@ jobs:
       - name: Build Docker image
         id: build
         run: |
-          IMAGE_URI="docker.io/text2sql/app:${{ github.sha }}"
-          echo "Building image: $IMAGE_URI"
-          # docker build -t $IMAGE_URI .
-          # docker push $IMAGE_URI
+          # Use a real public image for testing
+          IMAGE_URI="docker.io/nginx:latest"
+          echo "Using test image: $IMAGE_URI"
           echo "image-uri=$IMAGE_URI" >> $GITHUB_OUTPUT
 
   # Deploy preview environment using local action
@@ -101,6 +100,7 @@ jobs:
               "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
               "ANTHROPIC_API_KEY": "${{ secrets.ANTHROPIC_API_KEY }}"
             }
+          base-url: 'https://gtm.smith.langchain.dev/api-host/'
           resource-cpu: '2'
           resource-memory: '2048'
           min-scale: '1'
