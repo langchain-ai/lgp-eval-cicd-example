@@ -1,0 +1,84 @@
+name: 'LangSmith Evaluation Action'
+description: 'Run LangSmith evaluations with automated reporting and PR comments'
+author: 'LangChain AI'
+
+inputs:
+  action:
+    description: 'Action to perform: run-evaluations, generate-report'
+    required: true
+  langsmith-api-key:
+    description: 'LangSmith API key for running evaluations'
+    required: true
+  openai-api-key:
+    description: 'OpenAI API key for LLM-as-judge evaluations (DEPRECATED: use environment-variables instead)'
+    required: false
+  anthropic-api-key:
+    description: 'Anthropic API key for Claude evaluations (DEPRECATED: use environment-variables instead)'
+    required: false
+  environment-variables:
+    description: 'JSON object or YAML string of environment variables to set for evaluations (e.g., {"OPENAI_API_KEY": "sk-...", "ANTHROPIC_API_KEY": "sk-ant-...", "CUSTOM_VAR": "value"})'
+    required: false
+  test-command:
+    description: 'Command to run evaluation tests (e.g., "pytest -m evaluator")'
+    required: false
+    default: 'pytest -m evaluator'
+  dataset-name:
+    description: 'LangSmith dataset name to evaluate against'
+    required: false
+  experiment-prefix:
+    description: 'Prefix for LangSmith experiment names'
+    required: false
+  max-concurrency:
+    description: 'Maximum concurrency for evaluations (1-50)'
+    required: false
+    default: '10'
+  config-pattern:
+    description: 'Pattern for evaluation config files'
+    required: false
+    default: 'evaluation_config__*.json'
+  report-file:
+    description: 'Output file for evaluation report'
+    required: false
+    default: 'eval_report.md'
+  pr-comment:
+    description: 'Whether to post results as PR comment'
+    required: false
+    default: 'true'
+  fail-on-threshold:
+    description: 'Whether to fail the action if evaluation criteria are not met'
+    required: false
+    default: 'false'
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.11'
+  install-command:
+    description: 'Command to install dependencies'
+    required: false
+    default: 'pip install langsmith'
+  working-directory:
+    description: 'Working directory for evaluation commands'
+    required: false
+    default: '.'
+
+outputs:
+  report-file:
+    description: 'Path to the generated evaluation report'
+  experiment-names:
+    description: 'JSON array of experiment names that were evaluated'
+  total-experiments:
+    description: 'Total number of experiments evaluated'
+  passed-experiments:
+    description: 'Number of experiments that passed all criteria'
+  failed-experiments:
+    description: 'Number of experiments that failed criteria'
+  overall-status:
+    description: 'Overall evaluation status: success, warning, or failure'
+
+runs:
+  using: 'node20'
+  main: 'index.js'
+
+branding:
+  icon: 'check-circle'
+  color: 'purple'

@@ -1,0 +1,270 @@
+name: LangGraph Deployment Pipeline
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, closed]
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: text2sql-agent
+
+jobs:
+  # Build Docker image for deployments
+  build:
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    outputs:
+      image-uri: ${{ steps.build.outputs.image-uri }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=commit-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./dockerfiles/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Set image URI output
+        run: |
+          # Use the first tag (usually the PR or branch tag)
+          IMAGE_URI=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "image-uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+  # Deploy preview environment for PRs
+  deploy-preview:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    steps:
+      - name: Deploy Preview Environment
+        id: deploy
+        uses: langchain-ai/langgraph-deploy-action@v1
+        with:
+          action: 'deploy-preview'
+          api-key: ${{ secrets.LANGSMITH_API_KEY }}
+          image-uri: ${{ needs.build.outputs.image-uri }}
+          pr-number: ${{ github.event.pull_request.number }}
+          app-name: 'text2sql-agent'
+          base-url: 'https://gtm.smith.langchain.dev/api-host/v2'
+          secrets: |
+            {
+              "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+              "ANTHROPIC_API_KEY": "${{ secrets.ANTHROPIC_API_KEY }}",
+              "DATABASE_URL": "${{ secrets.PREVIEW_DATABASE_URL }}",
+              "REDIS_URL": "${{ secrets.PREVIEW_REDIS_URL }}",
+              "LOG_LEVEL": "debug"
+            }
+          resource-cpu: '2'
+          resource-memory: '2048'
+          min-scale: '1'
+          max-scale: '3'
+
+      - name: Comment PR with deployment info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = '${{ steps.deploy.outputs.report-file }}';
+
+            if (fs.existsSync(reportPath)) {
+              const report = fs.readFileSync(reportPath, 'utf8');
+
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: report
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `🚀 **Preview Deployment**\n\n✅ Successfully deployed to: [${{ steps.deploy.outputs.deployment-url }}](${{ steps.deploy.outputs.deployment-url }})\n\n**Deployment ID:** \`${{ steps.deploy.outputs.deployment-id }}\`\n**Status:** ${{ steps.deploy.outputs.deployment-status }}\n**Image:** \`${{ needs.build.outputs.image-uri }}\``
+              });
+            }
+
+  # Cleanup preview environment when PR is closed
+  cleanup-preview:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    steps:
+      - name: Cleanup Preview Environment
+        uses: langchain-ai/langgraph-deploy-action@v1
+        with:
+          action: 'cleanup-preview'
+          api-key: ${{ secrets.LANGSMITH_API_KEY }}
+          pr-number: ${{ github.event.pull_request.number }}
+          app-name: 'text2sql-agent'
+
+      - name: Comment PR with cleanup info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🧹 **Preview Environment Cleaned Up**\n\nThe preview deployment has been successfully removed.'
+            });
+
+  # Deploy to production on main branch
+  deploy-production:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production  # Requires approval for production deployments
+    steps:
+      - name: Deploy to Production
+        id: deploy
+        uses: langchain-ai/langgraph-deploy-action@v1
+        with:
+          action: 'deploy-production'
+          api-key: ${{ secrets.LANGSMITH_API_KEY }}
+          image-uri: ${{ needs.build.outputs.image-uri }}
+          deployment-name: 'text2sql-agent-prod'
+          base-url: 'https://api.host.langchain.com/v2'  # Production endpoint
+          secrets: |
+            {
+              "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+              "ANTHROPIC_API_KEY": "${{ secrets.ANTHROPIC_API_KEY }}",
+              "DATABASE_URL": "${{ secrets.PROD_DATABASE_URL }}",
+              "REDIS_URL": "${{ secrets.PROD_REDIS_URL }}",
+              "SENTRY_DSN": "${{ secrets.SENTRY_DSN }}",
+              "LOG_LEVEL": "info",
+              "ENVIRONMENT": "production"
+            }
+          resource-cpu: '4'
+          resource-memory: '4096'
+          min-scale: '2'
+          max-scale: '10'
+
+      - name: Create GitHub Release
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `deploy-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}`,
+              name: `Production Deployment ${new Date().toISOString().slice(0,10)}`,
+              body: `🚀 **Production Deployment**\n\n✅ Successfully deployed to production\n\n**Deployment URL:** [${{ steps.deploy.outputs.deployment-url }}](${{ steps.deploy.outputs.deployment-url }})\n**Deployment ID:** \`${{ steps.deploy.outputs.deployment-id }}\`\n**Docker Image:** \`${{ needs.build.outputs.image-uri }}\`\n**Status:** ${{ steps.deploy.outputs.deployment-status }}`,
+              draft: false,
+              prerelease: false
+            });
+
+      - name: Notify Slack
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          text: |
+            🚀 Production deployment ${{ job.status == 'success' && 'successful' || 'failed' }}!
+
+            **URL:** ${{ steps.deploy.outputs.deployment-url }}
+            **Image:** ${{ needs.build.outputs.image-uri }}
+            **Commit:** ${{ github.sha }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Health check after production deployment
+  health-check:
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Wait for deployment to be ready
+        run: sleep 60  # Give deployment time to start
+
+      - name: Health Check
+        run: |
+          HEALTH_URL="${{ needs.deploy-production.outputs.deployment-url }}/health"
+          echo "Checking health at: $HEALTH_URL"
+
+          for i in {1..10}; do
+            if curl -f -s "$HEALTH_URL" > /dev/null; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+            echo "⏳ Health check attempt $i/10 failed, retrying in 30s..."
+            sleep 30
+          done
+
+          echo "❌ Health check failed after 10 attempts"
+          exit 1
+
+      - name: Rollback on health check failure
+        if: failure()
+        uses: langchain-ai/langgraph-deploy-action@v1
+        with:
+          action: 'deploy-production'
+          api-key: ${{ secrets.LANGSMITH_API_KEY }}
+          image-uri: ${{ secrets.LAST_KNOWN_GOOD_IMAGE }}  # Stored from previous successful deployment
+          deployment-name: 'text2sql-agent-prod'
+          secrets: |
+            {
+              "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+              "DATABASE_URL": "${{ secrets.PROD_DATABASE_URL }}",
+              "LOG_LEVEL": "info",
+              "ENVIRONMENT": "production"
+            }
+
+  # Multi-environment deployment example
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: staging
+    steps:
+      - name: Deploy to Staging
+        uses: langchain-ai/langgraph-deploy-action@v1
+        with:
+          action: 'deploy-production'  # Use production action but with staging config
+          api-key: ${{ secrets.LANGSMITH_API_KEY }}
+          image-uri: ${{ needs.build.outputs.image-uri }}
+          deployment-name: 'text2sql-agent-staging'
+          secrets: |
+            {
+              "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+              "DATABASE_URL": "${{ secrets.STAGING_DATABASE_URL }}",
+              "LOG_LEVEL": "debug",
+              "ENVIRONMENT": "staging"
+            }
+          resource-cpu: '2'
+          resource-memory: '2048'
+          min-scale: '1'
+          max-scale: '3'

@@ -1,0 +1,137 @@
+name: Local Actions Example
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  # Run evaluations using local action
+  run-evaluations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest langsmith openevals anthropic
+          pip install -e .
+
+      # Use local LangSmith Evaluation Action
+      - name: Run LangSmith Evaluations
+        uses: ./langsmith-eval-action
+        with:
+          action: 'run-evaluations'
+          langsmith-api-key: ${{ secrets.LANGSMITH_API_KEY }}
+          test-command: 'pytest tests/offline_evals/ -m evaluator --verbose'
+          max-concurrency: '5'
+          fail-on-threshold: 'true'
+          environment-variables: |
+            {
+              "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+              "ANTHROPIC_API_KEY": "${{ secrets.ANTHROPIC_API_KEY }}",
+              "EVALUATION_MODE": "comprehensive"
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Build Docker image for deployments
+  build:
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    outputs:
+      image-uri: ${{ steps.build.outputs.image-uri }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        id: build
+        run: |
+          IMAGE_URI="docker.io/text2sql/app:${{ github.sha }}"
+          echo "Building image: $IMAGE_URI"
+          # docker build -t $IMAGE_URI .
+          # docker push $IMAGE_URI
+          echo "image-uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+  # Deploy preview environment using local action
+  deploy-preview:
+    needs: [run-evaluations, build]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Use local LangGraph Deploy Action
+      - name: Deploy Preview Environment
+        uses: ./langgraph-deploy-action
+        with:
+          action: 'deploy-preview'
+          api-key: ${{ secrets.LANGSMITH_API_KEY }}
+          image-uri: ${{ needs.build.outputs.image-uri }}
+          pr-number: ${{ github.event.pull_request.number }}
+          app-name: 'text2sql-agent'
+          secrets: |
+            {
+              "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+              "ANTHROPIC_API_KEY": "${{ secrets.ANTHROPIC_API_KEY }}"
+            }
+          resource-cpu: '2'
+          resource-memory: '2048'
+          min-scale: '1'
+          max-scale: '3'
+
+  # Deploy to production using local action
+  deploy-production:
+    needs: [run-evaluations, build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Use local LangGraph Deploy Action
+      - name: Deploy to Production
+        uses: ./langgraph-deploy-action
+        with:
+          action: 'deploy-production'
+          api-key: ${{ secrets.LANGSMITH_API_KEY }}
+          image-uri: ${{ needs.build.outputs.image-uri }}
+          deployment-name: 'text2sql-agent-prod'
+          secrets: |
+            {
+              "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+              "ANTHROPIC_API_KEY": "${{ secrets.ANTHROPIC_API_KEY }}",
+              "DATABASE_URL": "${{ secrets.PROD_DATABASE_URL }}",
+              "ENVIRONMENT": "production"
+            }
+          resource-cpu: '4'
+          resource-memory: '4096'
+          min-scale: '2'
+          max-scale: '10'
+
+  # Cleanup preview when PR is closed
+  cleanup-preview:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Use local LangGraph Deploy Action
+      - name: Cleanup Preview Environment
+        uses: ./langgraph-deploy-action
+        with:
+          action: 'cleanup-preview'
+          api-key: ${{ secrets.LANGSMITH_API_KEY }}
+          pr-number: ${{ github.event.pull_request.number }}
+          app-name: 'text2sql-agent'
