@@ -1,0 +1,68 @@
+name: 'LangGraph Deploy Action'
+description: 'Deploy and manage LangGraph applications with preview/production environments'
+author: 'LangChain AI'
+
+inputs:
+  action:
+    description: 'Action to perform: deploy-preview, deploy-production, cleanup-preview'
+    required: true
+  api-key:
+    description: 'LangSmith API key for LangGraph deployments'
+    required: true
+  deployment-name:
+    description: 'Name of the deployment (for production) or will be auto-generated for preview (pr-{number})'
+    required: false
+  app-name:
+    description: 'Application name used for auto-generated deployment names'
+    required: false
+    default: 'langgraph-app'
+  image-uri:
+    description: 'Docker image URI to deploy'
+    required: true
+  pr-number:
+    description: 'Pull request number (required for preview actions)'
+    required: false
+  openai-api-key:
+    description: 'OpenAI API key to inject as secret (optional, will use environment) - DEPRECATED: use secrets instead'
+    required: false
+  secrets:
+    description: 'JSON object or YAML string of secrets to inject into deployment (e.g., {"OPENAI_API_KEY": "sk-...", "ANTHROPIC_API_KEY": "sk-ant-..."})'
+    required: false
+  base-url:
+    description: 'LangGraph API base URL (examples: https://gtm.smith.langchain.dev/api-host/v2, https://api.host.langchain.com/v2)'
+    required: false
+    default: 'https://gtm.smith.langchain.dev/api-host/v2'
+  resource-cpu:
+    description: 'CPU allocation for deployment (1-16)'
+    required: false
+    default: '1'
+  resource-memory:
+    description: 'Memory allocation in MB (128-32768)'
+    required: false
+    default: '1024'
+  min-scale:
+    description: 'Minimum scale instances (1-100)'
+    required: false
+    default: '1'
+  max-scale:
+    description: 'Maximum scale instances (1-100)'
+    required: false
+    default: '1'
+
+outputs:
+  deployment-id:
+    description: 'ID of the created/updated deployment'
+  deployment-url:
+    description: 'URL of the deployment'
+  deployment-status:
+    description: 'Status of the deployment'
+  report-file:
+    description: 'Path to generated deployment report markdown file'
+
+runs:
+  using: 'node20'
+  main: 'index.js'
+
+branding:
+  icon: 'cloud'
+  color: 'blue'

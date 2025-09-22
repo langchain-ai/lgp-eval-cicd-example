@@ -1,0 +1,49 @@
+name: LangSmith Evaluation Example
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  run-evaluations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest langsmith openevals
+          pip install -e .
+
+      - name: Run LangSmith Evaluations
+        uses: langchain-ai/langsmith-eval-action@v1
+        with:
+          action: 'run-evaluations'
+          langsmith-api-key: ${{ secrets.LANGSMITH_API_KEY }}
+          test-command: 'pytest tests/offline_evals/ -m evaluator'
+          max-concurrency: '5'
+          fail-on-threshold: 'true'
+          environment-variables: |
+            {
+              "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+              "ANTHROPIC_API_KEY": "${{ secrets.ANTHROPIC_API_KEY }}",
+              "EVALUATION_MODE": "comprehensive"
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload evaluation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-results
+          path: |
+            eval_report.md
+            evaluation_config__*.json

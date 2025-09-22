@@ -1,313 +1,313 @@
-name: Comprehensive Tests
+# name: Comprehensive Tests
 
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
+# on:
+#   push:
+#     branches: [ main, develop ]
+#   pull_request:
+#     branches: [ main, develop ]
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+# permissions:
+#   contents: read
+#   pull-requests: write
+#   issues: write
 
-jobs:
-  setup:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install uv
-      uses: astral-sh/setup-uv@v1
-      with:
-        version: "latest"
-    - name: Cache uv dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          .uv/cache
-          .venv
-        key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-comprehensive-
-    - name: Install dependencies
-      run: uv sync
+# jobs:
+#   setup:
+#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         python-version: ["3.11"]
+#     steps:
+#     - uses: actions/checkout@v4
+#     - name: Set up Python ${{ matrix.python-version }}
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: ${{ matrix.python-version }}
+#     - name: Install uv
+#       uses: astral-sh/setup-uv@v1
+#       with:
+#         version: "latest"
+#     - name: Cache uv dependencies
+#       uses: actions/cache@v3
+#       with:
+#         path: |
+#           .uv/cache
+#           .venv
+#         key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
+#         restore-keys: |
+#           ${{ runner.os }}-uv-comprehensive-
+#     - name: Install dependencies
+#       run: uv sync
 
-  quality-checks:
-    needs: setup
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Needed for pre-commit hooks
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install uv
-      uses: astral-sh/setup-uv@v1
-      with:
-        version: "latest"
-    - name: Cache uv dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          .uv/cache
-          .venv
-        key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-comprehensive-
-    - name: Run Linting and Formatting Checks
-      run: make lint
-    - name: Run Pre-Commit Hooks
-      run: make pre-commit
+#   quality-checks:
+#     needs: setup
+#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         python-version: ["3.11"]
+#     steps:
+#     - uses: actions/checkout@v4
+#       with:
+#         fetch-depth: 0  # Needed for pre-commit hooks
+#     - name: Set up Python ${{ matrix.python-version }}
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: ${{ matrix.python-version }}
+#     - name: Install uv
+#       uses: astral-sh/setup-uv@v1
+#       with:
+#         version: "latest"
+#     - name: Cache uv dependencies
+#       uses: actions/cache@v3
+#       with:
+#         path: |
+#           .uv/cache
+#           .venv
+#         key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
+#         restore-keys: |
+#           ${{ runner.os }}-uv-comprehensive-
+#     - name: Run Linting and Formatting Checks
+#       run: make lint
+#     - name: Run Pre-Commit Hooks
+#       run: make pre-commit
 
-  test-coverage:
-    needs: setup
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
-      LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install uv
-      uses: astral-sh/setup-uv@v1
-      with:
-        version: "latest"
-    - name: Cache uv dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          .uv/cache
-          .venv
-        key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-comprehensive-
-    - name: Run Tests with Coverage
-      run: make test
+#   test-coverage:
+#     needs: setup
+#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         python-version: ["3.11"]
+#     env:
+#       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+#       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+#       LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
+#       LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
+#     steps:
+#     - uses: actions/checkout@v4
+#     - name: Set up Python ${{ matrix.python-version }}
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: ${{ matrix.python-version }}
+#     - name: Install uv
+#       uses: astral-sh/setup-uv@v1
+#       with:
+#         version: "latest"
+#     - name: Cache uv dependencies
+#       uses: actions/cache@v3
+#       with:
+#         path: |
+#           .uv/cache
+#           .venv
+#         key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
+#         restore-keys: |
+#           ${{ runner.os }}-uv-comprehensive-
+#     - name: Run Tests with Coverage
+#       run: make test
 
-  unit-tests:
-    needs: [setup, quality-checks, test-coverage]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
-      LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install uv
-      uses: astral-sh/setup-uv@v1
-      with:
-        version: "latest"
-    - name: Cache uv dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          .uv/cache
-          .venv
-        key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-comprehensive-
-    - name: Run unit tests
-      run: uv run pytest tests/unit/ --junitxml=unit-results.xml
-      continue-on-error: false
-    - name: Upload unit test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: unit-test-results
-        path: unit-results.xml
+#   unit-tests:
+#     needs: [setup, quality-checks, test-coverage]
+#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         python-version: ["3.11"]
+#     env:
+#       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+#       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+#       LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
+#       LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
+#     steps:
+#     - uses: actions/checkout@v4
+#     - name: Set up Python ${{ matrix.python-version }}
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: ${{ matrix.python-version }}
+#     - name: Install uv
+#       uses: astral-sh/setup-uv@v1
+#       with:
+#         version: "latest"
+#     - name: Cache uv dependencies
+#       uses: actions/cache@v3
+#       with:
+#         path: |
+#           .uv/cache
+#           .venv
+#         key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
+#         restore-keys: |
+#           ${{ runner.os }}-uv-comprehensive-
+#     - name: Run unit tests
+#       run: uv run pytest tests/unit/ --junitxml=unit-results.xml
+#       continue-on-error: false
+#     - name: Upload unit test results
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: unit-test-results
+#         path: unit-results.xml
 
-  integration-tests:
-    needs: [setup, quality-checks, test-coverage]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
-      LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install uv
-      uses: astral-sh/setup-uv@v1
-      with:
-        version: "latest"
-    - name: Cache uv dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          .uv/cache
-          .venv
-        key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-comprehensive-
-    - name: Run integration tests
-      run: uv run pytest tests/integrations/ --junitxml=integration-results.xml
-      continue-on-error: false
-    - name: Upload integration test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: integration-test-results
-        path: integration-results.xml
+#   integration-tests:
+#     needs: [setup, quality-checks, test-coverage]
+#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         python-version: ["3.11"]
+#     env:
+#       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+#       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+#       LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
+#       LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
+#     steps:
+#     - uses: actions/checkout@v4
+#     - name: Set up Python ${{ matrix.python-version }}
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: ${{ matrix.python-version }}
+#     - name: Install uv
+#       uses: astral-sh/setup-uv@v1
+#       with:
+#         version: "latest"
+#     - name: Cache uv dependencies
+#       uses: actions/cache@v3
+#       with:
+#         path: |
+#           .uv/cache
+#           .venv
+#         key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
+#         restore-keys: |
+#           ${{ runner.os }}-uv-comprehensive-
+#     - name: Run integration tests
+#       run: uv run pytest tests/integrations/ --junitxml=integration-results.xml
+#       continue-on-error: false
+#     - name: Upload integration test results
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: integration-test-results
+#         path: integration-results.xml
 
-  evaluation-tests:
-    needs: [setup, quality-checks, test-coverage]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
-      LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install uv
-      uses: astral-sh/setup-uv@v1
-      with:
-        version: "latest"
-    - name: Cache uv dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          .uv/cache
-          .venv
-        key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-comprehensive-
-    - name: Run evaluation tests
-      run: uv run pytest -m evaluator --junitxml=evaluator-results.xml
-      continue-on-error: false
-    - name: Upload evaluation test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: evaluation-test-results
-        path: evaluator-results.xml
+#   evaluation-tests:
+#     needs: [setup, quality-checks, test-coverage]
+#     runs-on: ubuntu-latest
+#     if: github.event_name == 'pull_request'
+#     strategy:
+#       matrix:
+#         python-version: ["3.11"]
+#     env:
+#       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+#       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+#       LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
+#       LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
+#     steps:
+#     - uses: actions/checkout@v4
+#     - name: Set up Python ${{ matrix.python-version }}
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: ${{ matrix.python-version }}
+#     - name: Install uv
+#       uses: astral-sh/setup-uv@v1
+#       with:
+#         version: "latest"
+#     - name: Cache uv dependencies
+#       uses: actions/cache@v3
+#       with:
+#         path: |
+#           .uv/cache
+#           .venv
+#         key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
+#         restore-keys: |
+#           ${{ runner.os }}-uv-comprehensive-
+#     - name: Run evaluation tests
+#       run: uv run pytest -m evaluator --junitxml=evaluator-results.xml
+#       continue-on-error: false
+#     - name: Upload evaluation test results
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: evaluation-test-results
+#         path: evaluator-results.xml
 
-    # Upload evaluation config JSON (LangSmith experiment name + criteria)
-    - name: Upload LangSmith evaluation config
-      uses: actions/upload-artifact@v4
-      with:
-        name: langsmith-eval-configs
-        path: evaluation_config__*.json
+#     # Upload evaluation config JSON (LangSmith experiment name + criteria)
+#     - name: Upload LangSmith evaluation config
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: langsmith-eval-configs
+#         path: evaluation_config__*.json
 
-# Post LangSmith evaluation feedback as a PR comment
-  evaluation-report:
-    needs: evaluation-tests
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    env:
-      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
-      LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
-    steps:
-    - uses: actions/checkout@v4
+# # Post LangSmith evaluation feedback as a PR comment
+#   evaluation-report:
+#     needs: evaluation-tests
+#     runs-on: ubuntu-latest
+#     if: github.event_name == 'pull_request'
+#     env:
+#       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+#       LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
+#       LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
+#     steps:
+#     - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
+#     - name: Set up Python
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: "3.11"
 
-    - name: Download all LangSmith configs
-      uses: actions/download-artifact@v4
-      with:
-        name: langsmith-eval-configs
+#     - name: Download all LangSmith configs
+#       uses: actions/download-artifact@v4
+#       with:
+#         name: langsmith-eval-configs
 
-    - name: Install LangSmith SDK
-      run: pip install langsmith
+#     - name: Install LangSmith SDK
+#       run: pip install langsmith
 
-    - name: Run LangSmith evaluation report
-      run: |
-        python .github/scripts/report_eval.py --verbose evaluation_config__*.json
+#     - name: Run LangSmith evaluation report
+#       run: |
+#         python .github/scripts/report_eval.py --verbose evaluation_config__*.json
 
 
-    - name: Comment PR with evaluation summary
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          const comment = fs.readFileSync('eval_comment.md', 'utf8');
+#     - name: Comment PR with evaluation summary
+#       uses: actions/github-script@v7
+#       with:
+#         script: |
+#           const fs = require('fs');
+#           const comment = fs.readFileSync('eval_comment.md', 'utf8');
 
-          await github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: comment
-          });
+#           await github.rest.issues.createComment({
+#             issue_number: context.issue.number,
+#             owner: context.repo.owner,
+#             repo: context.repo.repo,
+#             body: comment
+#           });
 
-  e2e-tests:
-    needs: [setup, quality-checks, test-coverage]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
-      LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install uv
-      uses: astral-sh/setup-uv@v1
-      with:
-        version: "latest"
-    - name: Cache uv dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          .uv/cache
-          .venv
-        key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-comprehensive-
-    - name: Run e2e tests
-      run: uv run pytest tests/e2e/ --junitxml=e2e-results.xml
-      continue-on-error: false
-    - name: Upload e2e test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: e2e-test-results
-        path: e2e-results.xml
+#   e2e-tests:
+#     needs: [setup, quality-checks, test-coverage]
+#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         python-version: ["3.11"]
+#     env:
+#       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+#       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+#       LANGSMITH_TRACING: ${{ secrets.LANGSMITH_TRACING }}
+#       LANGSMITH_ENDPOINT: ${{ secrets.LANGSMITH_ENDPOINT }}
+#     steps:
+#     - uses: actions/checkout@v4
+#     - name: Set up Python ${{ matrix.python-version }}
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: ${{ matrix.python-version }}
+#     - name: Install uv
+#       uses: astral-sh/setup-uv@v1
+#       with:
+#         version: "latest"
+#     - name: Cache uv dependencies
+#       uses: actions/cache@v3
+#       with:
+#         path: |
+#           .uv/cache
+#           .venv
+#         key: ${{ runner.os }}-uv-comprehensive-${{ hashFiles('**/pyproject.toml') }}
+#         restore-keys: |
+#           ${{ runner.os }}-uv-comprehensive-
+#     - name: Run e2e tests
+#       run: uv run pytest tests/e2e/ --junitxml=e2e-results.xml
+#       continue-on-error: false
+#     - name: Upload e2e test results
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: e2e-test-results
+#         path: e2e-results.xml

@@ -1,130 +1,130 @@
-name: Preview Deployment
+# name: Preview Deployment
 
-# Trigger on PR open, sync, or reopen
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [main]
+# # Trigger on PR open, sync, or reopen
+# on:
+#   pull_request:
+#     types: [opened, synchronize, reopened]
+#     branches: [main]
 
-# Set environment variables
-env:
-  PYTHON_VERSION: '3.11'
-  REGISTRY: docker.io
-  IMAGE_NAME: perinim98/text2sql-agent
-  LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+# # Set environment variables
+# env:
+#   PYTHON_VERSION: '3.11'
+#   REGISTRY: docker.io
+#   IMAGE_NAME: perinim98/text2sql-agent
+#   LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+#   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
-# Add permissions for PR comments
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+# # Add permissions for PR comments
+# permissions:
+#   contents: read
+#   pull-requests: write
+#   issues: write
 
-jobs:
-  preview-deployment:
-    runs-on: ubuntu-latest
+# jobs:
+#   preview-deployment:
+#     runs-on: ubuntu-latest
 
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+#     steps:
+#     - name: Checkout repository
+#       uses: actions/checkout@v4
+#       with:
+#         fetch-depth: 0
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
+#     - name: Set up Python
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v1
-      with:
-        version: "latest"
+#     - name: Install uv
+#       uses: astral-sh/setup-uv@v1
+#       with:
+#         version: "latest"
 
-    - name: Cache uv dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          .uv/cache
-          .venv
-        key: ${{ runner.os }}-uv-preview-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-preview-
+#     - name: Cache uv dependencies
+#       uses: actions/cache@v3
+#       with:
+#         path: |
+#           .uv/cache
+#           .venv
+#         key: ${{ runner.os }}-uv-preview-${{ hashFiles('**/pyproject.toml') }}
+#         restore-keys: |
+#           ${{ runner.os }}-uv-preview-
 
-    - name: Install dependencies
-      run: uv sync
+#     - name: Install dependencies
+#       run: uv sync
 
-    # Build and push Docker image with preview tag
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+#     # Build and push Docker image with preview tag
+#     - name: Set up Docker Buildx
+#       uses: docker/setup-buildx-action@v3
 
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+#     - name: Log in to Docker Hub
+#       uses: docker/login-action@v3
+#       with:
+#         registry: ${{ env.REGISTRY }}
+#         username: ${{ secrets.DOCKER_USERNAME }}
+#         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build and push preview Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./dockerfiles/Dockerfile
-        push: true
-        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }}
-        platforms: linux/amd64,linux/arm64
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+#     - name: Build and push preview Docker image
+#       uses: docker/build-push-action@v5
+#       with:
+#         context: .
+#         file: ./dockerfiles/Dockerfile
+#         push: true
+#         tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }}
+#         platforms: linux/amd64,linux/arm64
+#         cache-from: type=gha
+#         cache-to: type=gha,mode=max
 
-    - name: Install requests
-      run: pip install requests
+#     - name: Install requests
+#       run: pip install requests
 
-    # Deploy to LangGraph as preview
-    - name: Deploy preview to LangGraph
-      run: |
-        python .github/scripts/langgraph_api.py \
-          --action deploy-preview \
-          --pr-number ${{ github.event.pull_request.number }} \
-          --image-uri ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }} \
-          --api-key ${{ secrets.LANGSMITH_API_KEY }} \
-          --openai-api-key ${{ secrets.OPENAI_API_KEY }}
+#     # Deploy to LangGraph as preview
+#     - name: Deploy preview to LangGraph
+#       run: |
+#         python .github/scripts/langgraph_api.py \
+#           --action deploy-preview \
+#           --pr-number ${{ github.event.pull_request.number }} \
+#           --image-uri ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }} \
+#           --api-key ${{ secrets.LANGSMITH_API_KEY }} \
+#           --openai-api-key ${{ secrets.OPENAI_API_KEY }}
 
-    # Generate deployment status report
-    - name: Generate deployment status report
-      run: |
-        python .github/scripts/report_deployment.py \
-          --deployment-name text2sql-agent-pr-${{ github.event.pull_request.number }} \
-          --image-uri ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }} \
-          --deployment-type preview
+#     # Generate deployment status report
+#     - name: Generate deployment status report
+#       run: |
+#         python .github/scripts/report_deployment.py \
+#           --deployment-name text2sql-agent-pr-${{ github.event.pull_request.number }} \
+#           --image-uri ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }} \
+#           --deployment-type preview
 
-    # Comment PR with deployment status
-    - name: Comment PR with deployment status
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
+#     # Comment PR with deployment status
+#     - name: Comment PR with deployment status
+#       uses: actions/github-script@v7
+#       with:
+#         script: |
+#           const fs = require('fs');
 
-          try {
-            const comment = fs.readFileSync('deployment_comment.md', 'utf8');
+#           try {
+#             const comment = fs.readFileSync('deployment_comment.md', 'utf8');
 
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
-          } catch (error) {
-            console.log('Failed to read deployment comment file:', error.message);
-            // Fallback comment
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `🚀 **Preview Deployment Status**\n\n✅ Preview deployment completed!\n🔗 Preview URL: https://text2sql-agent-pr-${{ github.event.pull_request.number }}.langchain.dev\n📦 Docker image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }}`
-            });
-          }
+#             await github.rest.issues.createComment({
+#               issue_number: context.issue.number,
+#               owner: context.repo.owner,
+#               repo: context.repo.repo,
+#               body: comment
+#             });
+#           } catch (error) {
+#             console.log('Failed to read deployment comment file:', error.message);
+#             // Fallback comment
+#             await github.rest.issues.createComment({
+#               issue_number: context.issue.number,
+#               owner: context.repo.owner,
+#               repo: context.repo.repo,
+#               body: `🚀 **Preview Deployment Status**\n\n✅ Preview deployment completed!\n🔗 Preview URL: https://text2sql-agent-pr-${{ github.event.pull_request.number }}.langchain.dev\n📦 Docker image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }}`
+#             });
+#           }
 
-    - name: Preview deployment success
-      run: |
-        echo "✅ Preview deployment completed!"
-        echo "🔗 Preview URL will be available at: https://text2sql-agent-pr-${{ github.event.pull_request.number }}.langchain.dev"
-        echo "📦 Docker image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }}"
+#     - name: Preview deployment success
+#       run: |
+#         echo "✅ Preview deployment completed!"
+#         echo "🔗 Preview URL will be available at: https://text2sql-agent-pr-${{ github.event.pull_request.number }}.langchain.dev"
+#         echo "📦 Docker image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }}"
