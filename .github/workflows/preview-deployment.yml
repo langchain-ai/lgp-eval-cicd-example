@@ -83,10 +83,14 @@ jobs:
       run: |
         python .github/scripts/langgraph_api.py \
           --action deploy-preview \
+          --app-name text2sql-agent \
           --pr-number ${{ github.event.pull_request.number }} \
           --image-uri ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:preview-${{ github.event.pull_request.number }} \
           --api-key ${{ secrets.LANGSMITH_API_KEY }} \
-          --openai-api-key ${{ secrets.OPENAI_API_KEY }}
+          --secrets OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+          --base-url https://gtm.smith.langchain.dev/api-host/v2 \
+          --domain langchain.dev \
+          --protocol https
 
     # Generate deployment status report
     - name: Generate deployment status report

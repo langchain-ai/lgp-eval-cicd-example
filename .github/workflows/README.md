@@ -1,46 +1,68 @@
 # GitHub Actions Workflows
 
-This directory contains the CI/CD workflows for the text2sql-agent project. The workflows are designed to provide comprehensive quality assurance and automated testing.
+This directory contains the CI/CD workflows for the text2sql-agent project. The workflows provide comprehensive testing, quality assurance, and automated deployment using LangGraph (LangChain Hosted).
 
 ## Workflow Overview
 
-### 1. Quality Checks (`quality-checks.yml`)
+### 1. Comprehensive Tests (`test-with-results.yml`)
 **Triggers:** Push to main/develop, Pull Requests
-**Purpose:** Code quality and style enforcement
+**Purpose:** Complete testing pipeline with quality checks and evaluation
 
-- **Linting:** Runs `ruff`, `black`, and `isort` checks
-- **Type Checking:** Runs `mypy` for static type analysis
-- **Pre-commit Hooks:** Ensures code meets pre-commit standards
-- **PR Comments:** Automatically comments on PRs with results
-
-### 2. Test Coverage (`test-coverage.yml`)
-**Triggers:** Push to main/develop, Pull Requests
-**Purpose:** Test execution with coverage reporting
-
-- **Test Execution:** Runs all tests with coverage
-- **Coverage Upload:** Uploads coverage reports to Codecov
-- **PR Comments:** Reports test results on PRs
-
-### 3. Comprehensive Tests (`test-with-results.yml`)
-**Triggers:** Push to main/develop, Pull Requests
-**Purpose:** Detailed test execution with result artifacts
-
-- **Unit Tests:** Tests individual components
+**Jobs:**
+- **Setup:** Environment setup with Python 3.11 and UV dependency management
+- **Quality Checks:** Linting, formatting, and pre-commit hooks
+- **Test Coverage:** Test execution with coverage reporting
+- **Unit Tests:** Individual component testing
 - **Integration Tests:** Tests with external dependencies
-- **Evaluation Tests:** LLM-based evaluation tests
-- **E2E Tests:** End-to-end workflow tests
-- **LangSmith Integration:** Automated evaluation reporting
+- **E2E Tests:** End-to-end workflow testing
+- **Evaluation Tests:** LLM-based evaluation (PR only)
+- **Evaluation Report:** LangSmith integration with PR comments
 
-### 4. Docker Deployment (`new-lgp-deployment.yml`)
-**Triggers:** Push to main, Merged PRs to main
-**Purpose:** Docker image building and deployment
+### 2. Preview Deployment (`preview-deployment.yml`)
+**Triggers:** PR opened, synchronized, or reopened to main
+**Purpose:** Create preview deployments for PR testing
 
-- **Docker Build:** Builds multi-platform Docker image
-- **Docker Push:** Pushes to Docker Hub registry
-- **LangChain Deployment:** Deploys to LangChain hosted platform
-- **Automated Tagging:** Creates semantic versioning tags
+**Features:**
+- **Docker Build:** Multi-platform Docker image with preview tag
+- **LangGraph Deployment:** Deploy to preview environment
+- **PR Comments:** Automatic status reporting
+- **Preview URLs:** `https://text2sql-agent-pr-<pr-number>.langchain.dev`
+
+### 3. Production Deployment (`new-lgp-revision.yml`)
+**Triggers:** PR closed (merged or not)
+**Purpose:** Cleanup previews and deploy to production
+
+**Jobs:**
+- **Cleanup Preview:** Remove preview deployment when PR closes
+- **Build Production:** Build and push production Docker image (merged PRs only)
+- **Deploy Production:** Deploy to production environment (merged PRs only)
+- **Production URL:** `https://text2sql-agent-prod.langchain.dev`
 
 
+
+## Deployment Pipeline
+
+### Pipeline Flow
+
+| Event | Action | Docker Tag | Deployment |
+|-------|--------|------------|------------|
+| Push to main/develop | Run comprehensive tests | - | - |
+| PR open/sync | Build & deploy preview | `preview-<pr#>` | `text2sql-agent-pr-<pr#>` |
+| PR close | Cleanup preview | - | Delete preview |
+| PR merge | Deploy to production | `latest` | `text2sql-agent-prod` |
+
+### Deployment Naming Convention
+
+- **Preview Deployments:** `text2sql-agent-pr-<pr-number>`
+- **Production Deployment:** `text2sql-agent-prod`
+- **Docker Images:**
+  - Preview: `perinim98/text2sql-agent:preview-<pr-number>`
+  - Production: `perinim98/text2sql-agent:latest`
+
+### URLs
+
+- **Preview URLs:** `https://text2sql-agent-pr-<pr-number>.langchain.dev`
+- **Production URL:** `https://text2sql-agent-prod.langchain.dev`
 
 ## Usage
 
@@ -48,12 +70,11 @@ This directory contains the CI/CD workflows for the text2sql-agent project. The 
 Use the Makefile targets that correspond to the CI workflows:
 
 ```bash
-# Quality checks (equivalent to quality-checks.yml)
+# Quality checks (equivalent to test-with-results.yml quality-checks job)
 make lint
-make type-check
 make pre-commit
 
-# Test coverage (equivalent to test-coverage.yml)
+# Test execution (equivalent to test-with-results.yml test-coverage job)
 make test
 
 # Format code (auto-fix)
@@ -62,37 +83,61 @@ make format
 
 ### CI/CD Pipeline
 The workflows run automatically on:
-- **Every PR:** Quality checks, test coverage, comprehensive tests
-- **Every push to main/develop:** All checks and tests
-- **Push to main/Merged PRs:** Docker deployment to LangChain
+- **Every PR:** Comprehensive tests, preview deployment
+- **Every push to main/develop:** Comprehensive tests
+- **PR close:** Cleanup preview deployment
+- **PR merge:** Production deployment
 
 ### Required Secrets
 The following secrets must be configured in your GitHub repository:
 
-- `OPENAI_API_KEY`: For OpenAI API access in tests
-- `LANGSMITH_API_KEY`: For LangSmith integration
+- `OPENAI_API_KEY`: For OpenAI API access in tests and application
+- `LANGSMITH_API_KEY`: For LangGraph API integration
 - `LANGSMITH_TRACING`: For LangSmith tracing
-- `CODECOV_TOKEN`: For coverage reporting
+- `LANGSMITH_ENDPOINT`: For LangSmith endpoint configuration
 - `DOCKER_USERNAME`: Your Docker Hub username
 - `DOCKER_PASSWORD`: Your Docker Hub access token
 
+## API Integration
+
+The pipeline uses a custom Python script (`.github/scripts/langgraph_api.py`) to interact with the LangGraph API:
+
+- **List Deployments:** Find existing preview deployments
+- **Create Deployment:** Create new preview/production deployments
+- **Update Deployment:** Update existing deployments with new images
+- **Delete Deployment:** Clean up preview deployments
+
 ## Workflow Benefits
 
-1. **Parallel Execution:** Different test types run in parallel for faster feedback
-2. **Caching:** UV dependencies are cached to speed up builds
-3. **Artifact Management:** Test results and reports are preserved as artifacts
-4. **PR Integration:** Automatic commenting and status reporting
-5. **Quality Gates:** Multiple layers of quality assurance
-6. **Automated Deployment:** Docker images built and deployed automatically
+1. **No wasteful deployments:** Only deploys on PR events, not every push
+2. **Preview environments:** Each PR gets its own preview deployment
+3. **Automatic cleanup:** Preview deployments are automatically removed when PRs are closed
+4. **Production safety:** Production only deploys when PRs are merged
+5. **Cost optimization:** Preview deployments use minimal resources (scale to 0 when not in use)
+6. **Parallel Execution:** Different test types run in parallel for faster feedback
+7. **Caching:** UV dependencies are cached to speed up builds
+8. **Artifact Management:** Test results and reports are preserved as artifacts
+9. **PR Integration:** Automatic commenting and status reporting
+10. **Quality Gates:** Multiple layers of quality assurance
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Cache Misses:** If builds are slow, check that cache keys are consistent
-2. **Secret Errors:** Ensure all required secrets are properly configured
-3. **Test Failures:** Check the specific test job logs for detailed error information
-4. **Coverage Issues:** Verify Codecov token and repository configuration
+1. **Preview deployment not found:** Check if the PR number is correct and the deployment was created successfully
+2. **API errors:** Verify the `LANGSMITH_API_KEY` secret is correct
+3. **Docker build failures:** Check the Dockerfile path and build context
+4. **Production deployment fails:** Ensure the PR was actually merged, not just closed
+5. **Cache Misses:** If builds are slow, check that cache keys are consistent
+6. **Secret Errors:** Ensure all required secrets are properly configured
+7. **Test Failures:** Check the specific test job logs for detailed error information
+
+### Debugging
+
+- Check GitHub Actions logs for detailed error messages
+- Verify secrets are properly configured
+- Test API calls manually using the script: `python .github/scripts/langgraph_api.py --help`
+- The script supports a `--base-url` parameter for different LangGraph environments
 
 ### Manual Workflow Execution
 You can manually trigger workflows using the GitHub Actions UI or by dispatching workflow events via the GitHub API.
