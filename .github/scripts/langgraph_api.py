@@ -167,7 +167,7 @@ def parse_secrets(
             key, value = secret.split("=", 1)
             secrets.append({"name": key, "value": value})
         else:
-            print(f"⚠️  Warning: Secret '{secret}' should be in format KEY=VALUE")
+            print("⚠️  Warning: A secret argument is not in the format KEY=VALUE and will be ignored.")
 
     # Parse secrets from environment variables
     for env_var in secrets_from_env:
