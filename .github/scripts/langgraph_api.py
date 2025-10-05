@@ -79,15 +79,9 @@ class LangGraphAPI:
         }
 
         print(f"📤 Sending deployment request to: {self.base_url}/deployments")
-
-        # Create a safe version of the payload for logging (hide secrets)
-        safe_payload = request_body.copy()
-        if "secrets" in safe_payload:
-            safe_payload["secrets"] = [
-                {"name": secret["name"], "value": "***REDACTED***"}
-                for secret in safe_payload["secrets"]
-            ]
-        print(f"📦 Payload: {safe_payload}")
+        print(
+            f"📦 Deployment: {request_body.get('name')} with image: {request_body.get('source_revision_config', {}).get('image_uri')}"
+        )
 
         response = requests.post(
             f"{self.base_url}/deployments", headers=self.headers, json=request_body
@@ -173,7 +167,7 @@ def parse_secrets(
         if "=" in secret:
             key, value = secret.split("=", 1)
             secrets.append({"name": key, "value": value})
-            print(f"✅ Added secret: {key}")
+            print("✅ Secret added")
         else:
             print(
                 "⚠️  Warning: A secret argument is not in the format KEY=VALUE and will be ignored."
@@ -184,9 +178,11 @@ def parse_secrets(
         value = os.environ.get(env_var)
         if value:
             secrets.append({"name": env_var, "value": value})
-            print(f"✅ Added secret from environment: {env_var}")
+            print("✅ Secret added from environment")
         else:
-            print(f"⚠️  Warning: Environment variable '{env_var}' not found")
+            print(
+                "⚠️  Warning: One of the required environment variables for a secret was not found"
+            )
 
     return secrets
 
