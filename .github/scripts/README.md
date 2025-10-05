@@ -29,6 +29,12 @@ python langgraph_api.py --action deploy-preview --pr-number 123 --image-uri dock
 
 # Multiple secrets (from environment)
 python langgraph_api.py --action deploy-preview --pr-number 123 --image-uri docker.io/user/repo:preview-123 --api-key $LANGSMITH_API_KEY --secrets-from-env OPENAI_API_KEY ANTHROPIC_API_KEY DATABASE_URL REDIS_URL
+
+# Custom deployment name
+python langgraph_api.py --action deploy-preview --pr-number 123 --image-uri docker.io/user/repo:preview-123 --api-key $LANGSMITH_API_KEY --deployment-name my-custom-preview-123
+
+# Custom resources
+python langgraph_api.py --action deploy-production --image-uri docker.io/user/repo:latest --api-key $LANGSMITH_API_KEY --min-scale 1 --max-scale 3 --cpu 2 --memory-mb 2048
 ```
 
 **Key Functions:**

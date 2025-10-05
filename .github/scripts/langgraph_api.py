@@ -5,7 +5,6 @@ Handles preview deployments, production deployments, and cleanup with configurab
 """
 
 import argparse
-import json
 import os
 import sys
 from typing import Any, Dict, List, Optional
@@ -80,7 +79,15 @@ class LangGraphAPI:
         }
 
         print(f"📤 Sending deployment request to: {self.base_url}/deployments")
-        print(f"📦 Payload: {request_body}")
+
+        # Create a safe version of the payload for logging (hide secrets)
+        safe_payload = request_body.copy()
+        if "secrets" in safe_payload:
+            safe_payload["secrets"] = [
+                {"name": secret["name"], "value": "***REDACTED***"}
+                for secret in safe_payload["secrets"]
+            ]
+        print(f"📦 Payload: {safe_payload}")
 
         response = requests.post(
             f"{self.base_url}/deployments", headers=self.headers, json=request_body
@@ -166,29 +173,22 @@ def parse_secrets(
         if "=" in secret:
             key, value = secret.split("=", 1)
             secrets.append({"name": key, "value": value})
+            print(f"✅ Added secret: {key}")
         else:
-            print("⚠️  Warning: A secret argument is not in the format KEY=VALUE and will be ignored.")
+            print(
+                "⚠️  Warning: A secret argument is not in the format KEY=VALUE and will be ignored."
+            )
 
     # Parse secrets from environment variables
     for env_var in secrets_from_env:
         value = os.environ.get(env_var)
         if value:
             secrets.append({"name": env_var, "value": value})
+            print(f"✅ Added secret from environment: {env_var}")
         else:
             print(f"⚠️  Warning: Environment variable '{env_var}' not found")
 
     return secrets
-
-
-def load_config(config_path: str) -> Dict[str, Any]:
-    """Load configuration from JSON file."""
-    try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-        return config
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"❌ Failed to load config file {config_path}: {e}")
-        sys.exit(1)
 
 
 def deploy_preview(
@@ -305,10 +305,10 @@ Examples:
   python langgraph_api.py --action deploy-preview --app-name my-llm-app --pr-number 123 --image-uri docker.io/user/my-llm-app:preview-123 --api-key $LANGSMITH_API_KEY
 
   # Deploy with custom secrets and resources
-  python langgraph_api.py --action deploy-production --app-name my-llm-app --image-uri docker.io/user/my-llm-app:latest --secrets OPENAI_API_KEY=sk-xxx --secrets-from-env DATABASE_URL --min-scale 0 --max-scale 3 --cpu 2.0 --memory-mb 2048 --api-key $LANGSMITH_API_KEY
+  python langgraph_api.py --action deploy-production --app-name my-llm-app --image-uri docker.io/user/my-llm-app:latest --secrets OPENAI_API_KEY=sk-xxx --secrets-from-env DATABASE_URL --min-scale 1 --max-scale 3 --cpu 2 --memory-mb 2048 --api-key $LANGSMITH_API_KEY
 
-  # Use configuration file
-  python langgraph_api.py --config deployment-config.json --action deploy-preview --pr-number 123 --api-key $LANGSMITH_API_KEY
+  # Cleanup preview deployment
+  python langgraph_api.py --action cleanup-preview --app-name my-llm-app --pr-number 123 --api-key $LANGSMITH_API_KEY
         """,
     )
 
@@ -324,9 +324,6 @@ Examples:
         "--base-url",
         help="LangGraph API base URL (default: https://api.host.langchain.com/v2)",
     )
-
-    # Configuration file
-    parser.add_argument("--config", help="Configuration file path (JSON format)")
 
     # Deployment naming
     parser.add_argument(
@@ -364,16 +361,22 @@ Examples:
 
     # Resource specifications
     parser.add_argument(
-        "--min-scale", type=int, default=1, help="Minimum scale (default: 1)"
+        "--min-scale",
+        type=int,
+        default=1,
+        help="Minimum scale (default: 1, minimum: 1)",
     )
     parser.add_argument(
         "--max-scale", type=int, default=1, help="Maximum scale (default: 1)"
     )
     parser.add_argument(
-        "--cpu", type=float, default=1.0, help="CPU allocation (default: 1.0)"
+        "--cpu", type=int, default=1, help="CPU allocation (default: 1, minimum: 1)"
     )
     parser.add_argument(
-        "--memory-mb", type=int, default=1024, help="Memory in MB (default: 1024)"
+        "--memory-mb",
+        type=int,
+        default=1024,
+        help="Memory in MB (default: 1024, minimum: 1024)",
     )
 
     # URL configuration
@@ -388,23 +391,22 @@ Examples:
 
     args = parser.parse_args()
 
-    # Load configuration file if provided
-    config = {}
-    if args.config:
-        config = load_config(args.config)
-        # Override args with config values (config takes precedence)
-        for key, value in config.items():
-            if hasattr(args, key) and getattr(args, key) in [
-                None,
-                [],
-                0,
-                1,
-                "text2sql-agent",
-                "prod",
-                "langchain.dev",
-                "https",
-            ]:
-                setattr(args, key, value)
+    # Validate resource specifications
+    if args.min_scale < 1:
+        print("❌ Error: min-scale must be at least 1")
+        sys.exit(1)
+
+    if args.cpu < 1:
+        print("❌ Error: CPU must be at least 1")
+        sys.exit(1)
+
+    if args.memory_mb < 1024:
+        print("❌ Error: Memory must be at least 1024 MB")
+        sys.exit(1)
+
+    if args.max_scale < args.min_scale:
+        print("❌ Error: max-scale must be greater than or equal to min-scale")
+        sys.exit(1)
 
     # Parse secrets
     secrets = parse_secrets(args.secrets, args.secrets_from_env)
