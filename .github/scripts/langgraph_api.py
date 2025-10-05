@@ -79,9 +79,9 @@ class LangGraphAPI:
         }
 
         print(f"📤 Sending deployment request to: {self.base_url}/deployments")
-        print(
-            f"📦 Deployment: {request_body.get('name')} with image: {request_body.get('source_revision_config', {}).get('image_uri')}"
-        )
+        # Log only non-sensitive data (do not log deployment name/image_uri, which could contain secrets)
+        print("📦 Deployment request sent.")  # Redacted name and image_uri from logs
+
 
         response = requests.post(
             f"{self.base_url}/deployments", headers=self.headers, json=request_body
