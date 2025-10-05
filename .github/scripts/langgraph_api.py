@@ -82,7 +82,6 @@ class LangGraphAPI:
         # Log only non-sensitive data (do not log deployment name/image_uri, which could contain secrets)
         print("📦 Deployment request sent.")  # Redacted name and image_uri from logs
 
-
         response = requests.post(
             f"{self.base_url}/deployments", headers=self.headers, json=request_body
         )
@@ -457,7 +456,7 @@ Examples:
 
     elif args.action == "cleanup-preview":
         if not args.pr_number:
-            print("❌ PR number is required for preview cleanup")
+            print("❌ PR number is required for preview cleanup.")
             sys.exit(1)
         deployment_name = args.deployment_name or f"{args.app_name}-pr-{args.pr_number}"
         cleanup_preview(api, args.pr_number, args.app_name, deployment_name)
