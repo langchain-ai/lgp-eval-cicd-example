@@ -123,20 +123,18 @@ Example `langgraph.json`:
 }
 ```
 
-### Method 1: GitHub Integration from UI (Recommended for Cloud Users)
+### Method 1: LangSmith Deployment UI (Cloud Only)
 
-Connect your GitHub repository directly to LangGraph Platform:
+Deploy your agent using the LangSmith deployment interface for cloud deployments:
 
-1. Go to your LangGraph Platform dashboard
-2. Connect your GitHub repository by providing GitHub permissions
-3. The platform will automatically build and deploy your agent from your repository
-4. No manual Docker image building or pushing required
+1. Go to your LangSmith dashboard
+2. Navigate to the Deployments section
+3. Connect your GitHub repository and specify the agent path
 
 **Benefits:**
-- Simplest deployment method for cloud users
-- Automatic build and deployment
-- No manual Docker image management
+- Simple UI-based deployment
 - Direct integration with your GitHub repository
+- No manual Docker image management required
 
 ### Method 2: Build Docker Image with LangGraph CLI
 
@@ -152,22 +150,12 @@ docker push my-agent:latest
 
 You can push to any container registry (Docker Hub, AWS ECR, Azure ACR, Google GCR, etc.) that your deployment environment has access to.
 
+**Deployment Options:**
+- **Cloud LangSmith**: Use the Control Plane API to create deployments from your container registry
+- **Self-Hosted/Hybrid LangSmith**: Choose between LangSmith UI or Control Plane API
+
 See the [LangGraph CLI build documentation](https://docs.langchain.com/langgraph-platform/cli#build) for more details.
 
-### Method 3: Generate Dockerfile
-
-Create a custom Dockerfile for more control:
-
-```bash
-# Generate Dockerfile from langgraph.json
-uv run langgraph dockerfile -c langgraph.json Dockerfile
-
-# Build and push manually
-docker build -t my-agent:latest .
-docker push my-agent:latest
-```
-
-See the [LangGraph CLI dockerfile documentation](https://docs.langchain.com/langgraph-platform/cli#dockerfile) for more details.
 
 ### Local Development & Testing
 
@@ -189,27 +177,41 @@ This will:
 
 See the [LangGraph CLI documentation](https://docs.langchain.com/langgraph-platform/cli#dev) for more details.
 
-### Deploy to LangGraph Platform
+### Deploy to LangSmith
 
-#### Cloud Deployment (LangSmith Cloud)
+#### Cloud Deployment
 
-Deploy using the [LangGraph Platform Control Plane API](https://docs.langchain.com/langgraph-platform/api-ref-control-plane#langgraph-control-plane-api-reference) to create deployments from your container registry.
+Deploy using the LangSmith deployment UI or the [Control Plane API](https://docs.langchain.com/langgraph-platform/api-ref-control-plane#langgraph-control-plane-api-reference):
+
+- **UI Method**: Connect your GitHub repository directly in the LangSmith UI
+- **API Method**: Use the Control Plane API to create deployments from your container registry (required for Docker images)
 
 ![Cloud Deployment UI](assets/cloud-lgp.png)
 
-#### Self-Hosted Deployment
+#### Self-Hosted/Hybrid Deployment
 
 For [self-hosted LangSmith instances](https://docs.langchain.com/langgraph-platform/deploy-self-hosted-full-platform):
 
 1. Ensure your Kubernetes cluster has access to your container registry
-2. Create a new deployment from the LangSmith UI
-3. Specify your image URI (e.g., `docker.io/username/my-agent:latest`)
+2. Build and push your Docker image to your container registry
+3. Choose your deployment method:
+   - **LangSmith UI**: Create a new deployment and specify your image URI (e.g., `docker.io/username/my-agent:latest`)
+   - **Control Plane API**: Use the API to create deployments from your container registry
 
 **Note**: Self-hosted deployments don't distinguish between development/production types, but you can use tags to organize them.
 
 ![Self-Hosted Deployment UI](assets/selfhosted-lgp.png)
 
 See the [self-hosted full platform deployment guide](https://docs.langchain.com/langgraph-platform/deploy-self-hosted-full-platform) for detailed setup instructions.
+
+### Connect to Your Deployed Agent
+
+Once your agent is deployed, you can connect to it using several methods:
+
+- **[LangGraph SDK](https://docs.langchain.com/langgraph-platform/sdk)**: Use the LangGraph SDK for programmatic integration
+- **[RemoteGraph](https://docs.langchain.com/langgraph-platform/use-remote-graph)**: Connect using RemoteGraph for remote graph connections (to use your graph in other graphs)
+- **[REST API](https://docs.langchain.com/langgraph-platform/server-api-ref)**: Use HTTP-based interactions with your deployed agent
+- **[LangGraph Studio](https://docs.langchain.com/langgraph-platform/langgraph-studio)**: Access the visual interface for testing and debugging
 
 ### Environment Configuration
 
@@ -233,39 +235,45 @@ Remember to add all necessary environment variables to your deployment, includin
 
 ```mermaid
 graph TD
-    A[Agent Implementation] --> B[langgraph.json]
+    A[Agent Implementation] --> B[langgraph.json + dependencies]
     B --> C[Test Locally with langgraph dev]
-    C --> D{Local Test Passed?}
-    D -->|No| E[Fix Issues]
+    C --> D{Errors?}
+    D -->|Yes| E[Fix Issues]
     E --> C
-    D -->|Yes| F[Choose Deployment Method]
+    D -->|No| F[Choose LangSmith Instance]
 
-    F --> G[Method 1: GitHub Integration from UI]
-    F --> H[Method 2: langgraph build]
-    F --> I[Method 3: langgraph dockerfile]
+    F --> G[Cloud LangSmith]
+    F --> H[Self-Hosted/Hybrid LangSmith]
 
-    G --> J[Connect GitHub Repo]
-    J --> K[Auto Build & Deploy]
+    subgraph "Cloud LangSmith"
+        G --> I[Method 1: Connect GitHub Repo in UI]
+        G --> J[Method 2: Build Docker Image]
+        I --> K[Deploy via LangSmith UI]
+        J --> L[Build Docker Image]
+        L --> M[Push to Container Registry]
+        M --> N[Deploy via Control Plane API]
+    end
 
-    H --> L[Build Docker Image]
-    I --> M[Generate Dockerfile]
-    M --> N[Build Docker Image Manually]
+    subgraph "Self-Hosted/Hybrid LangSmith"
+        H --> S[Build Docker Image]
+        S --> T[Push to Container Registry]
+        T --> U{Deploy via?}
+        U -->|UI| V[Specify Image URI in UI]
+        U -->|API| W[Use Control Plane API]
+        V --> X[Deploy via LangSmith UI]
+        W --> Y[Deploy via Control Plane API]
+    end
 
-    L --> O[Push to Container Registry]
-    N --> O
+    K --> AA[Agent Ready for Use]
+    N --> AA
+    X --> AA
+    Y --> AA
 
-    K --> P[Deploy to LangGraph Platform]
-    O --> P
-    P --> Q{Deployment Type?}
-
-    Q -->|Cloud| R[Use Control Plane API or GitHub]
-    Q -->|Self-Hosted| S[Use LangSmith UI]
-
-    R --> T[Production Deployment]
-    S --> T
-
-    T --> U[Monitor with LangSmith]
-    U --> V[Agent Ready for Use]
+    AA --> BB{Connect via?}
+    BB -->|LangGraph SDK| CC[Use LangGraph SDK]
+    BB -->|RemoteGraph| DD[Use RemoteGraph]
+    BB -->|REST API| EE[Use REST API]
+    BB -->|LangGraph Studio UI| FF[Use LangGraph Studio UI]
 ```
 
 ### Deployment Best Practices
@@ -304,18 +312,20 @@ graph TD
     A2[Prompt Commit in PromptHub] --> B1
     A3[Online Evaluation Alert] --> B1
 
-    B1 --> C1[Run Unit Tests on Nodes]
-    B1 --> C2[Run Integration Tests]
-    B1 --> C3[Run End to End Tests on Graph]
+    subgraph "Testing"
+        B1 --> C1[Run Unit Tests on Nodes]
+        B1 --> C2[Run Integration Tests]
+        B1 --> C3[Run End to End Tests on Graph]
 
-    C1 --> D1[Run Offline Evaluations]
-    C2 --> D1
-    C3 --> D1
+        C1 --> D1[Run Offline Evaluations]
+        C2 --> D1
+        C3 --> D1
 
-    D1 --> E1[Evaluate with OpenEvals or AgentEvals]
-    D1 --> E2[Assertions: Hard and Soft]
+        D1 --> E1[Evaluate with OpenEvals or AgentEvals]
+        D1 --> E2[Assertions: Hard and Soft]
+    end
 
-    E1 --> F1[Push to Staging Deployment - Spin new Docker deployment in LGP as Development Type]
+    E1 --> F1[Push to Staging Deployment - Deploy to LangSmith as Development Type]
     E2 --> F1
 
     F1 --> G1[Run Online Evaluations on Live Data]
@@ -326,7 +336,7 @@ graph TD
     I1 --> J2[Trigger Alert via Webhook]
     I1 --> J3[Push Trace to Golden Dataset]
 
-    F1 --> K1[Promote to Production if All Pass - Spin Production Deployment in LGP]
+    F1 --> K1[Promote to Production if All Pass - Deploy to LangSmith Production]
 
     J2 --> L1[Slack or PagerDuty Notification]
 
