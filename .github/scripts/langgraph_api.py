@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-LangGraph API helper script for deployment management.
-Handles preview deployments, production deployments, and cleanup.
+Generic LangGraph API helper script for deployment management.
+Handles preview deployments, production deployments, and cleanup with configurable parameters.
 """
 
 import argparse
 import os
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -15,10 +15,10 @@ import requests
 class LangGraphAPI:
     """LangGraph API client for deployment management."""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, base_url: Optional[str] = None):
         self.api_key = api_key
-        # Use the same endpoint as the working script
-        self.base_url = "https://gtm.smith.langchain.dev/api-host/v2"
+        # Default to the standard LangChain hosted API, but allow override
+        self.base_url = base_url or "https://api.host.langchain.com/v2"
         # Fix header name to match working script
         self.headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
 
@@ -40,15 +40,23 @@ class LangGraphAPI:
             sys.exit(1)
 
     def create_deployment(
-        self, name: str, image_uri: str, openai_api_key: Optional[str] = None
+        self,
+        name: str,
+        image_uri: str,
+        secrets: List[Dict[str, str]] = None,
+        resource_spec: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Create a new deployment."""
-        # Get OpenAI API key from environment if not provided
-        if openai_api_key is None:
-            openai_api_key = os.environ.get("OPENAI_API_KEY")
-            if not openai_api_key:
-                print("❌ OPENAI_API_KEY not found in environment variables")
-                sys.exit(1)
+        if secrets is None:
+            secrets = []
+
+        if resource_spec is None:
+            resource_spec = {
+                "min_scale": 1,
+                "max_scale": 1,
+                "cpu": 1,
+                "memory_mb": 1024,
+            }
 
         # Match the working script structure exactly, but for external_docker
         request_body = {
@@ -60,28 +68,19 @@ class LangGraphAPI:
                 "deployment_type": None,
                 "build_on_push": None,
                 "custom_url": None,
-                "resource_spec": {
-                    "min_scale": 1,
-                    "max_scale": 1,
-                    "cpu": 1,
-                    "memory_mb": 1024,
-                },
+                "resource_spec": resource_spec,
             },
             "source_revision_config": {
                 "repo_ref": None,
                 "langgraph_config_path": None,
                 "image_uri": image_uri,
             },
-            "secrets": [
-                {
-                    "name": "OPENAI_API_KEY",
-                    "value": openai_api_key,
-                }
-            ],
+            "secrets": secrets,
         }
 
         print(f"📤 Sending deployment request to: {self.base_url}/deployments")
-        print(f"📦 Payload: {request_body}")
+        # Log only non-sensitive data (do not log deployment name/image_uri, which could contain secrets)
+        print("📦 Deployment request sent.")  # Redacted name and image_uri from logs
 
         response = requests.post(
             f"{self.base_url}/deployments", headers=self.headers, json=request_body
@@ -156,9 +155,51 @@ class LangGraphAPI:
         return None
 
 
-def deploy_preview(api: LangGraphAPI, pr_number: int, image_uri: str):
+def parse_secrets(
+    secrets_args: List[str], secrets_from_env: List[str]
+) -> List[Dict[str, str]]:
+    """Parse secrets from command line arguments and environment variables."""
+    secrets = []
+
+    # Parse secrets from command line (format: KEY=VALUE)
+    for secret in secrets_args:
+        if "=" in secret:
+            key, value = secret.split("=", 1)
+            secrets.append({"name": key, "value": value})
+            print("✅ Secret added")
+        else:
+            print(
+                "⚠️  Warning: A secret argument is not in the format KEY=VALUE and will be ignored."
+            )
+
+    # Parse secrets from environment variables
+    for env_var in secrets_from_env:
+        value = os.environ.get(env_var)
+        if value:
+            secrets.append({"name": env_var, "value": value})
+            print("✅ Secret added from environment")
+        else:
+            print(
+                "⚠️  Warning: One of the required environment variables for a secret was not found"
+            )
+
+    return secrets
+
+
+def deploy_preview(
+    api: LangGraphAPI,
+    pr_number: int,
+    image_uri: str,
+    app_name: str,
+    secrets: List[Dict[str, str]],
+    resource_spec: Dict[str, Any],
+    domain: str,
+    protocol: str,
+    deployment_name: str = None,
+):
     """Deploy or update a preview deployment."""
-    deployment_name = f"text2sql-agent-pr-{pr_number}"
+    if deployment_name is None:
+        deployment_name = f"{app_name}-pr-{pr_number}"
 
     print(f"🔍 Looking for existing preview deployment: {deployment_name}")
 
@@ -172,21 +213,26 @@ def deploy_preview(api: LangGraphAPI, pr_number: int, image_uri: str):
         result = api.update_deployment(existing_deployment["id"], image_uri)
         print("✅ Preview deployment updated successfully!")
         print(f"📦 Deployment ID: {result['id']}")
-        print(f"🔗 URL: https://{deployment_name}.langchain.dev")
+        print(f"🔗 URL: {protocol}://{deployment_name}.{domain}")
 
     else:
         print(f"🆕 Creating new preview deployment: {deployment_name}")
         print(f"📦 Image: {image_uri}")
 
-        result = api.create_deployment(deployment_name, image_uri)
+        result = api.create_deployment(
+            deployment_name, image_uri, secrets, resource_spec
+        )
         print("✅ Preview deployment created successfully!")
         print(f"📦 Deployment ID: {result['id']}")
-        print(f"🔗 URL: https://{deployment_name}.langchain.dev")
+        print(f"🔗 URL: {protocol}://{deployment_name}.{domain}")
 
 
-def cleanup_preview(api: LangGraphAPI, pr_number: int):
+def cleanup_preview(
+    api: LangGraphAPI, pr_number: int, app_name: str, deployment_name: str = None
+):
     """Clean up a preview deployment."""
-    deployment_name = f"text2sql-agent-pr-{pr_number}"
+    if deployment_name is None:
+        deployment_name = f"{app_name}-pr-{pr_number}"
 
     print(f"🔍 Looking for preview deployment to cleanup: {deployment_name}")
 
@@ -204,9 +250,20 @@ def cleanup_preview(api: LangGraphAPI, pr_number: int):
         print(f"ℹ️  No preview deployment found for PR #{pr_number}")
 
 
-def deploy_production(api: LangGraphAPI, image_uri: str):
+def deploy_production(
+    api: LangGraphAPI,
+    image_uri: str,
+    app_name: str,
+    secrets: List[Dict[str, str]],
+    resource_spec: Dict[str, Any],
+    domain: str,
+    protocol: str,
+    production_suffix: str,
+    deployment_name: str = None,
+):
     """Deploy or update production deployment."""
-    deployment_name = "text2sql-agent-prod"
+    if deployment_name is None:
+        deployment_name = f"{app_name}-{production_suffix}"
 
     print(f"🔍 Looking for production deployment: {deployment_name}")
 
@@ -219,20 +276,38 @@ def deploy_production(api: LangGraphAPI, image_uri: str):
         result = api.update_deployment(existing_deployment["id"], image_uri)
         print("✅ Production deployment updated successfully!")
         print(f"📦 Deployment ID: {result['id']}")
-        print(f"🔗 URL: https://{deployment_name}.langchain.dev")
+        print(f"🔗 URL: {protocol}://{deployment_name}.{domain}")
 
     else:
         print(f"🆕 Creating new production deployment: {deployment_name}")
         print(f"📦 Image: {image_uri}")
 
-        result = api.create_deployment(deployment_name, image_uri)
+        result = api.create_deployment(
+            deployment_name, image_uri, secrets, resource_spec
+        )
         print("✅ Production deployment created successfully!")
         print(f"📦 Deployment ID: {result['id']}")
-        print(f"🔗 URL: https://{deployment_name}.langchain.dev")
+        print(f"🔗 URL: {protocol}://{deployment_name}.{domain}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="LangGraph API deployment helper")
+    parser = argparse.ArgumentParser(
+        description="Generic LangGraph API deployment helper",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Deploy preview with custom app name
+  python langgraph_api.py --action deploy-preview --app-name my-llm-app --pr-number 123 --image-uri docker.io/user/my-llm-app:preview-123 --api-key $LANGSMITH_API_KEY
+
+  # Deploy with custom secrets and resources
+  python langgraph_api.py --action deploy-production --app-name my-llm-app --image-uri docker.io/user/my-llm-app:latest --secrets OPENAI_API_KEY=sk-xxx --secrets-from-env DATABASE_URL --min-scale 1 --max-scale 3 --cpu 2 --memory-mb 2048 --api-key $LANGSMITH_API_KEY
+
+  # Cleanup preview deployment
+  python langgraph_api.py --action cleanup-preview --app-name my-llm-app --pr-number 123 --api-key $LANGSMITH_API_KEY
+        """,
+    )
+
+    # Core arguments
     parser.add_argument(
         "--action",
         required=True,
@@ -240,34 +315,151 @@ def main():
         help="Action to perform",
     )
     parser.add_argument("--api-key", required=True, help="LangGraph API key")
+    parser.add_argument(
+        "--base-url",
+        help="LangGraph API base URL (default: https://api.host.langchain.com/v2)",
+    )
+
+    # Deployment naming
+    parser.add_argument(
+        "--app-name",
+        default="text2sql-agent",
+        help="Application name (default: text2sql-agent)",
+    )
+    parser.add_argument(
+        "--production-suffix",
+        default="prod",
+        help="Production deployment suffix (default: prod)",
+    )
+    parser.add_argument(
+        "--deployment-name",
+        help="Specific deployment name (overrides naming convention)",
+    )
+
+    # Preview deployment arguments
     parser.add_argument("--pr-number", type=int, help="PR number (for preview actions)")
     parser.add_argument("--image-uri", help="Docker image URI")
+
+    # Secrets management
     parser.add_argument(
-        "--openai-api-key",
-        help="OpenAI API key (optional, will use env var if not provided)",
+        "--secrets",
+        nargs="*",
+        default=[],
+        help="Secrets to include (format: KEY=VALUE)",
+    )
+    parser.add_argument(
+        "--secrets-from-env",
+        nargs="*",
+        default=[],
+        help="Environment variables to use as secrets",
+    )
+
+    # Resource specifications
+    parser.add_argument(
+        "--min-scale",
+        type=int,
+        default=1,
+        help="Minimum scale (default: 1, minimum: 1)",
+    )
+    parser.add_argument(
+        "--max-scale", type=int, default=1, help="Maximum scale (default: 1)"
+    )
+    parser.add_argument(
+        "--cpu", type=int, default=1, help="CPU allocation (default: 1, minimum: 1)"
+    )
+    parser.add_argument(
+        "--memory-mb",
+        type=int,
+        default=1024,
+        help="Memory in MB (default: 1024, minimum: 1024)",
+    )
+
+    # URL configuration
+    parser.add_argument(
+        "--domain",
+        default="langchain.dev",
+        help="Deployment domain (default: langchain.dev)",
+    )
+    parser.add_argument(
+        "--protocol", default="https", help="URL protocol (default: https)"
     )
 
     args = parser.parse_args()
 
-    api = LangGraphAPI(args.api_key)
+    # Validate resource specifications
+    if args.min_scale < 1:
+        print("❌ Error: min-scale must be at least 1")
+        sys.exit(1)
+
+    if args.cpu < 1:
+        print("❌ Error: CPU must be at least 1")
+        sys.exit(1)
+
+    if args.memory_mb < 1024:
+        print("❌ Error: Memory must be at least 1024 MB")
+        sys.exit(1)
+
+    if args.max_scale < args.min_scale:
+        print("❌ Error: max-scale must be greater than or equal to min-scale")
+        sys.exit(1)
+
+    # Parse secrets
+    secrets = parse_secrets(args.secrets, args.secrets_from_env)
+
+    # Build resource specification
+    resource_spec = {
+        "min_scale": args.min_scale,
+        "max_scale": args.max_scale,
+        "cpu": args.cpu,
+        "memory_mb": args.memory_mb,
+    }
+
+    api = LangGraphAPI(args.api_key, args.base_url)
 
     if args.action == "deploy-preview":
         if not args.pr_number or not args.image_uri:
             print("❌ PR number and image URI are required for preview deployment")
             sys.exit(1)
-        deploy_preview(api, args.pr_number, args.image_uri)
+
+        deployment_name = args.deployment_name or f"{args.app_name}-pr-{args.pr_number}"
+        deploy_preview(
+            api,
+            args.pr_number,
+            args.image_uri,
+            args.app_name,
+            secrets,
+            resource_spec,
+            args.domain,
+            args.protocol,
+            deployment_name,
+        )
 
     elif args.action == "deploy-production":
         if not args.image_uri:
             print("❌ Image URI is required for production deployment")
             sys.exit(1)
-        deploy_production(api, args.image_uri)
+
+        deployment_name = (
+            args.deployment_name or f"{args.app_name}-{args.production_suffix}"
+        )
+        deploy_production(
+            api,
+            args.image_uri,
+            args.app_name,
+            secrets,
+            resource_spec,
+            args.domain,
+            args.protocol,
+            args.production_suffix,
+            deployment_name,
+        )
 
     elif args.action == "cleanup-preview":
         if not args.pr_number:
-            print("❌ PR number is required for preview cleanup")
+            print("❌ PR number is required for preview cleanup.")
             sys.exit(1)
-        cleanup_preview(api, args.pr_number)
+        deployment_name = args.deployment_name or f"{args.app_name}-pr-{args.pr_number}"
+        cleanup_preview(api, args.pr_number, args.app_name, deployment_name)
 
 
 if __name__ == "__main__":
