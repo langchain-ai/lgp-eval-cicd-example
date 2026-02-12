@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository uses a modern CI/CD pipeline with GitHub Actions for automated testing, preview deployments, and production deployments using LangGraph (LangChain Hosted).
+This repository uses a modern CI/CD pipeline with GitHub Actions for automated testing, preview deployments, and production deployments using LangSmith Deployment.
 
 ## Pipeline Structure
 
@@ -25,7 +25,7 @@ This repository uses a modern CI/CD pipeline with GitHub Actions for automated t
   - Deploy to LangGraph as preview deployment
   - Update existing preview if it exists
 
-### 3. Production Deployment (`new-lgp-revision.yml`)
+### 3. Production Deployment (`new-deployment-revision.yml`)
 - **Trigger:** PR closed (merged or not)
 - **Purpose:** Cleanup previews and deploy to production
 - **Jobs:**

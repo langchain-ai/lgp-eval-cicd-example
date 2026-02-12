@@ -1,9 +1,9 @@
-# LGP Evals CI/CD Pipeline 🚀
+# LangSmith Deployment Evals CI/CD Pipeline 🚀
 
 Agent built in [LangGraph OSS](https://docs.langchain.com/oss/python/langgraph/overview). It includes:
 - unit, integration, e2e tests
 - offline evaluations with [OpenEvals](https://github.com/langchain-ai/openevals) and [LangSmith](https://docs.langchain.com/langsmith/home)
-- preview and prod agent deployments using [LangGraph Platform](https://docs.langchain.com/langgraph-platform/api-ref-control-plane) control plane API
+- preview and prod agent deployments using [LangSmith Deployment](https://docs.langchain.com/langgraph-platform/api-ref-control-plane) control plane API
 
 ## 🛠️ Prerequisites
 
@@ -171,7 +171,7 @@ This will:
 - Allow you to visualize and interact with your graph
 - Validate that your agent works correctly before deployment
 
-**💡 Tip**: If your graph works in LangGraph Studio, deployment to LangGraph Platform will likely succeed.
+**💡 Tip**: If your graph works in LangGraph Studio, deployment to LangSmith Deployment will likely succeed.
 
 ![LangGraph Studio Interface](assets/studio-cli.png)
 
@@ -186,7 +186,7 @@ Deploy using the LangSmith deployment UI or the [Control Plane API](https://docs
 - **UI Method**: Connect your GitHub repository directly in the LangSmith UI
 - **API Method**: Use the Control Plane API to create deployments from your container registry (required for Docker images)
 
-![Cloud Deployment UI](assets/cloud-lgp.png)
+![Cloud Deployment UI](assets/cloud-deployments.png)
 
 #### Self-Hosted/Hybrid Deployment
 
@@ -200,7 +200,7 @@ For [self-hosted LangSmith instances](https://docs.langchain.com/langgraph-platf
 
 **Note**: Self-hosted deployments don't distinguish between development/production types, but you can use tags to organize them.
 
-![Self-Hosted Deployment UI](assets/selfhosted-lgp.png)
+![Self-Hosted Deployment UI](assets/selfhosted-deployments.png)
 
 See the [self-hosted full platform deployment guide](https://docs.langchain.com/langgraph-platform/deploy-self-hosted-full-platform) for detailed setup instructions.
 
@@ -217,7 +217,7 @@ Once your agent is deployed, you can connect to it using several methods:
 
 #### Database & Cache Configuration
 
-By default, LangGraph Platform creates PostgreSQL and Redis instances for you. To use external services:
+By default, LangSmith Deployment creates PostgreSQL and Redis instances for you. To use external services:
 
 ```bash
 # Set environment variables for external services
@@ -294,11 +294,11 @@ The pipeline is designed to automatically handle the entire lifecycle from code 
 
 The CI/CD pipeline is implemented through GitHub Actions workflows that automatically trigger on code changes and pull requests:
 
-#### New LGP Revision Workflow
+#### New Deployment Revision Workflow
 
-![New LGP Revision Workflow](assets/new-lgp-revision.png)
+![New Deployment Revision Workflow](assets/new-deployment-revision.png)
 
-If we already have an existing deployment, this workflow will run the new LangGraph Platform revision process. This ensures that any updates to the agent are properly deployed and integrated into the existing infrastructure.
+If we already have an existing deployment, this workflow will run the new LangSmith Deployment revision process. This ensures that any updates to the agent are properly deployed and integrated into the existing infrastructure.
 
 #### Testing and Evaluation Workflow
 

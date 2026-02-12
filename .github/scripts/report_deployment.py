@@ -162,7 +162,7 @@ class DeploymentReporter:
         print(f"📝 Writing deployment report to {output_file}")
 
         with open(output_file, "w") as f:
-            f.write("# 🚀 LangGraph Deployment Status\n\n")
+            f.write("# 🚀 LangSmith Deployment Status\n\n")
 
             if "error" in report:
                 f.write("### ❌ Deployment Failed\n\n")
