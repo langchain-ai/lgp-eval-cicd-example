@@ -15,8 +15,11 @@ You will have the full message history to help you answer the question, if you n
 """
 
 SQL_SYSTEM_PROMPT = """
-Task: Generate SQL statement to query a database.
+Task: Generate a SQLite SQL statement to query a database.
 Instructions:
+The database is SQLite. Use SQLite syntax only.
+In particular, limit rows with `LIMIT n` at the end of the query -- SQLite does
+not support `SELECT TOP n`, which is SQL Server syntax and raises a syntax error.
 Use only the provided relationship types and properties in the schema.
 Do not use any other relationship types or properties that are not provided.
 Note: Do not include any explanations or apologies in your responses.
