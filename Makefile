@@ -1,6 +1,6 @@
 # Makefile for Project Automation
 
-.PHONY: install lint test test-deployment build all clean security-scan format pre-commit
+.PHONY: install lint test test-deployment test-e2e test-evals build all clean security-scan format pre-commit
 
 # Variables
 PACKAGE_NAME = agents
@@ -21,8 +21,19 @@ lint:
 	uv run isort --check-only $(PACKAGE_NAME) $(TEST_DIR) $(SCRIPTS_DIR)
 
 # Run Tests with Coverage
+# Offline suites only: e2e and evaluations need live model and LangSmith access,
+# so they get their own targets and their own CI jobs. Keeping them out of here
+# means a missing credential cannot fail the coverage gate.
 test:
-	uv run pytest --cov=$(PACKAGE_NAME) --cov-report=xml $(TEST_DIR)/
+	uv run pytest --cov=$(PACKAGE_NAME) --cov-report=xml \
+		$(TEST_DIR)/unit $(TEST_DIR)/integrations $(TEST_DIR)/deployment
+
+# Suites that call real services
+test-e2e:
+	uv run pytest $(TEST_DIR)/e2e/
+
+test-evals:
+	uv run pytest -m evaluator
 
 # Test the deployment client for both hosting models (no credentials needed)
 test-deployment:

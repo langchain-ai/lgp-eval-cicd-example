@@ -35,15 +35,12 @@ jobs:
       - name: Run pre-commit hooks
         run: make pre-commit
 
+  # Offline suites only -- see the `test` target. e2e and evaluations run in
+  # their own jobs so that a missing credential cannot block work that needs none.
   test-coverage:
     name: Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      LANGSMITH_TRACING: ${{ vars.LANGSMITH_TRACING || 'false' }}
-      LANGSMITH_ENDPOINT: ${{ vars.LANGSMITH_ENDPOINT }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -81,7 +78,7 @@ jobs:
 
   unit-tests:
     name: Unit tests
-    needs: [quality-checks, test-coverage]
+    needs: [quality-checks]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -107,7 +104,7 @@ jobs:
 
   integration-tests:
     name: Integration tests
-    needs: [quality-checks, test-coverage]
+    needs: [quality-checks]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
