@@ -72,6 +72,11 @@ def build_llm():
     model = os.environ.get("LLM_MODEL") or DEFAULT_MODELS[route]
 
     if route == "gateway":
+        # Wrap gateway failures. The gateway is OpenAI-compatible, so the OpenAI
+        # SDK raises OpenAI-named exceptions for errors that have nothing to do
+        # with OpenAI -- a 403 from the gateway surfaces as
+        # OpenAIPermissionDeniedError, which sends people to check the wrong
+        # credential entirely.
         # LLM_GATEWAY_API_KEY first: a self-hosted deployment calling Cloud's
         # gateway needs a Cloud key, which is not the same as the LANGSMITH_API_KEY
         # its own instance issues. On Cloud the two coincide and the fallback works.
@@ -84,13 +89,12 @@ def build_llm():
                 "or LANGSMITH_API_KEY when they are the same instance. LangSmith "
                 "Cloud injects LANGSMITH_API_KEY into deployments for you."
             )
-        return ChatOpenAI(
-            model=model,
-            base_url=os.environ.get(
-                "LLM_GATEWAY_BASE_URL", "https://gateway.smith.langchain.com/v1"
-            ),
-            api_key=api_key,
-            temperature=0,
+        base_url = os.environ.get(
+            "LLM_GATEWAY_BASE_URL", "https://gateway.smith.langchain.com/v1"
+        )
+        return GatewayChatModel(
+            base_url,
+            ChatOpenAI(model=model, base_url=base_url, api_key=api_key, temperature=0),
         )
 
     if route == "anthropic":
@@ -170,6 +174,48 @@ def create_agent(llm, db):
     builder.add_edge("execute_sql", "generate_answer")
     builder.add_edge("generate_answer", END)
     return builder.compile()
+
+
+class GatewayChatModel:
+    """Wrap a gateway-backed model so its errors name the gateway.
+
+    The LangSmith LLM Gateway speaks the OpenAI API, so the OpenAI SDK raises
+    ``OpenAIAuthenticationError`` / ``OpenAIPermissionDeniedError`` for gateway
+    problems. Those names point at OpenAI, which is not involved at all -- the
+    request goes to the gateway and the credential is a LangSmith key. Restate
+    the error so it names what actually failed.
+    """
+
+    def __init__(self, base_url, model):
+        self._base_url = base_url
+        self._model = model
+
+    def _wrap(self, exc: Exception) -> Exception:
+        name = type(exc).__name__
+        if "Authentication" not in name and "PermissionDenied" not in name:
+            return exc
+        return RuntimeError(
+            f"The LangSmith LLM Gateway at {self._base_url} rejected the request: "
+            f"{exc}. This is a gateway/LangSmith credential problem, not OpenAI -- "
+            "no request was made to OpenAI. Check LLM_GATEWAY_API_KEY (or "
+            "LANGSMITH_API_KEY), and note the gateway only accepts Cloud keys, "
+            "not a self-hosted instance's own key."
+        )
+
+    def invoke(self, *args, **kwargs):
+        try:
+            return self._model.invoke(*args, **kwargs)
+        except Exception as exc:
+            raise self._wrap(exc) from exc
+
+    async def ainvoke(self, *args, **kwargs):
+        try:
+            return await self._model.ainvoke(*args, **kwargs)
+        except Exception as exc:
+            raise self._wrap(exc) from exc
+
+    def __getattr__(self, name):
+        return getattr(self._model, name)
 
 
 class LazyChatModel:

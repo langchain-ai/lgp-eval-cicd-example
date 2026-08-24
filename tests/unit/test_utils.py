@@ -152,3 +152,49 @@ def test_gateway_route_requires_a_langsmith_key(monkeypatch):
     monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
     with pytest.raises(ValueError, match="LANGSMITH_API_KEY"):
         build_llm()
+
+
+@pytest.mark.utils
+def test_gateway_errors_do_not_blame_openai():
+    """The gateway speaks the OpenAI API, so the OpenAI SDK names its errors.
+
+    A 403 from the gateway surfaced as OpenAIPermissionDeniedError, which points
+    at a service that was never contacted and sends people to check the wrong
+    credential. Restate it so it names the gateway.
+    """
+    from agents.simple_text2sql import GatewayChatModel
+
+    class FakePermissionDenied(Exception):
+        pass
+
+    FakePermissionDenied.__name__ = "OpenAIPermissionDeniedError"
+
+    class Boom:
+        def invoke(self, *a, **k):
+            raise FakePermissionDenied(
+                "Error code: 403 - {'error': 'API key has expired'}"
+            )
+
+    wrapped = GatewayChatModel("https://gateway.example/v1", Boom())
+    with pytest.raises(RuntimeError) as excinfo:
+        wrapped.invoke("hi")
+
+    message = str(excinfo.value)
+    assert "LangSmith LLM Gateway" in message
+    assert "gateway.example" in message
+    assert "not OpenAI" in message
+    assert "LLM_GATEWAY_API_KEY" in message
+
+
+@pytest.mark.utils
+def test_gateway_wrapper_leaves_unrelated_errors_alone():
+    """Only auth/permission errors are restated; everything else passes through."""
+    from agents.simple_text2sql import GatewayChatModel
+
+    class Boom:
+        def invoke(self, *a, **k):
+            raise TimeoutError("upstream timed out")
+
+    wrapped = GatewayChatModel("https://gateway.example/v1", Boom())
+    with pytest.raises(TimeoutError):
+        wrapped.invoke("hi")
