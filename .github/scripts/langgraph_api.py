@@ -165,6 +165,7 @@ def deploy(
             payload["source_revision_config"],
             secrets=secrets,
             source_config=mutable_config,
+            route_through_gateway=args.route_through_gateway,
         )
     else:
         print(f"🆕 Creating deployment {name}.")
@@ -174,6 +175,7 @@ def deploy(
             payload["source_config"],
             payload["source_revision_config"],
             secrets,
+            route_through_gateway=args.route_through_gateway,
         )
 
     print_deployment(deployment)
@@ -388,6 +390,16 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "environment and never logged.",
     )
     parser.add_argument(
+        "--route-through-gateway",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Cloud only. Have the platform route OpenAI and Anthropic calls "
+        "through the LangSmith LLM Gateway, so the deployment needs no provider "
+        "key of its own. Self-hosted control planes do not implement this field "
+        "and silently ignore it; forward a Cloud key as LLM_GATEWAY_API_KEY "
+        "instead, or give the deployment a real provider key.",
+    )
+    parser.add_argument(
         "--wait",
         action="store_true",
         help="Block until the new revision reaches DEPLOYED.",
@@ -427,6 +439,14 @@ def main(argv: List[str]) -> int:
         die(str(exc))
 
     print(f"🎯 Target: {args.target}  •  control plane: {client.host}")
+
+    if args.route_through_gateway and args.target != TARGET_SAAS:
+        print(
+            "⚠️  --route-through-gateway is a Cloud-only field. This self-hosted "
+            "control plane does not implement it and will ignore it silently. "
+            "Forward a Cloud key as LLM_GATEWAY_API_KEY, or set a provider key.",
+            file=sys.stderr,
+        )
 
     try:
         if args.action == "cleanup-preview":

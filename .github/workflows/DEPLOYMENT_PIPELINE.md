@@ -224,6 +224,26 @@ python .github/scripts/langgraph_api.py \
 `--action status --name t2sql-demo` and removed with `--action cleanup-preview
 --name t2sql-demo`. The self-hosted length limit still applies when creating.
 
+## Model credentials differ by hosting model
+
+The LLM Gateway is a **Cloud** service (`gateway.smith.langchain.com`). That
+matters more than it sounds:
+
+| | Cloud (SaaS) | Self-Hosted |
+|---|---|---|
+| Platform-managed gateway routing (`route_through_gateway`) | supported | **not implemented — silently ignored** |
+| Gateway with a forwarded key | `LLM_GATEWAY_API_KEY`, or the injected `LANGSMITH_API_KEY` | `LLM_GATEWAY_API_KEY` must be a **Cloud** key |
+| Direct provider | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | same |
+
+A self-hosted instance's own API key **cannot** call the gateway; it returns
+`403`. The gateway only accepts Cloud keys, which is why `LLM_GATEWAY_API_KEY`
+exists separately from `LANGSMITH_API_KEY`.
+
+So a self-hosted deployment has two real options: forward a Cloud key, or give
+it a provider key. There is no "the platform handles it" path — that is Cloud
+only, and passing `--route-through-gateway` to a self-hosted control plane is
+accepted by the CLI and then dropped on the floor by the API, so the CLI warns.
+
 ## Naming
 
 - Preview deployments: `<prefix>-pr-<pr-number>` (deployment type `dev`), default `text2sql-pr-<n>`
