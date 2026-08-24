@@ -704,3 +704,37 @@ def test_self_hosted_serving_url_comes_from_custom_url():
     )
 
     assert control_plane.deployment_url({"url": None, "source_config": {}}) is None
+
+
+@pytest.mark.deployment
+def test_route_through_gateway_is_sent_when_requested():
+    """Cloud accepts the flag; the client must actually include it."""
+    import inspect
+
+    src = inspect.getsource(control_plane.ControlPlaneClient.create_deployment)
+    assert "route_through_gateway" in src
+    src = inspect.getsource(control_plane.ControlPlaneClient.patch_deployment)
+    assert "route_through_gateway" in src
+
+
+@pytest.mark.deployment
+def test_route_through_gateway_help_states_it_is_cloud_only():
+    """The flag is silently ignored by self-hosted, so the help must say so."""
+    import pathlib
+    import subprocess
+    import sys as _s
+
+    out = subprocess.run(
+        [
+            _s.executable,
+            str(
+                pathlib.Path(__file__).resolve().parents[2]
+                / ".github/scripts/langgraph_api.py"
+            ),
+            "--help",
+        ],
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "Cloud only" in out
+    assert "silently ignore" in out

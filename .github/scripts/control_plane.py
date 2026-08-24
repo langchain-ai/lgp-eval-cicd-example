@@ -260,18 +260,21 @@ class ControlPlaneClient:
         source_config: Dict[str, Any],
         source_revision_config: Dict[str, Any],
         secrets: List[Dict[str, str]],
+        route_through_gateway: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Create a deployment and return the created resource."""
         validate_new_deployment_name(
             name, TARGET_SELF_HOSTED if source == "external_docker" else TARGET_SAAS
         )
-        body = {
+        body: Dict[str, Any] = {
             "name": name,
             "source": source,
             "source_config": source_config,
             "source_revision_config": source_revision_config,
             "secrets": secrets,
         }
+        if route_through_gateway is not None:
+            body["route_through_gateway"] = route_through_gateway
         try:
             response = self._request(
                 "POST", self._url("deployments"), json=body, expected=(200, 201)
@@ -297,6 +300,7 @@ class ControlPlaneClient:
         source_revision_config: Dict[str, Any],
         secrets: Optional[List[Dict[str, str]]] = None,
         source_config: Optional[Dict[str, Any]] = None,
+        route_through_gateway: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Create a new revision of an existing deployment.
 
@@ -308,6 +312,8 @@ class ControlPlaneClient:
             body["secrets"] = secrets
         if source_config is not None:
             body["source_config"] = source_config
+        if route_through_gateway is not None:
+            body["route_through_gateway"] = route_through_gateway
         response = self._request(
             "PATCH",
             self._url("deployments", deployment_id),
