@@ -720,7 +720,6 @@ def test_route_through_gateway_is_sent_when_requested():
 @pytest.mark.deployment
 def test_route_through_gateway_help_states_it_is_cloud_only():
     """The flag is silently ignored by self-hosted, so the help must say so."""
-    parser_help = langgraph_api.parse_args.__doc__ or ""
     import pathlib
     import subprocess
     import sys as _s
