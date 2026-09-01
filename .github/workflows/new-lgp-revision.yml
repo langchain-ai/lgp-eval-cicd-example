@@ -155,7 +155,7 @@ jobs:
           CONTROL_PLANE_HOST: ${{ secrets.CONTROL_PLANE_HOST }}
           LANGSMITH_REGION: ${{ vars.LANGSMITH_REGION || 'us' }}
           LLM_GATEWAY_BASE_URL: ${{ vars.LLM_GATEWAY_BASE_URL || 'https://gateway.smith.langchain.com/v1' }}
-          LLM_MODEL: ${{ vars.LLM_MODEL || 'anthropic/claude-haiku-4-5-20251001' }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || 'anthropic/claude-sonnet-5' }}
           REPO_REF: ${{ github.event.pull_request.base.ref }}
           REPO_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |

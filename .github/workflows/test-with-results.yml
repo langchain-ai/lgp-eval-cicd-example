@@ -15,7 +15,7 @@ env:
   # Route every job through the LangSmith LLM Gateway.
   LLM_PROVIDER: gateway
   LLM_GATEWAY_BASE_URL: ${{ vars.LLM_GATEWAY_BASE_URL || 'https://gateway.smith.langchain.com/v1' }}
-  LLM_MODEL: ${{ vars.LLM_MODEL || 'anthropic/claude-haiku-4-5-20251001' }}
+  LLM_MODEL: ${{ vars.LLM_MODEL || 'anthropic/claude-sonnet-5' }}
   # Namespaces the dataset and experiment names. See agents/config.py.
   DEMO_OWNER: ${{ vars.DEMO_OWNER }}
 
